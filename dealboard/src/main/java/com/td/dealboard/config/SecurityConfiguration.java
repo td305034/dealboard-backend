@@ -26,6 +26,11 @@ public class SecurityConfiguration {
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final HttpCookieOAuth2AuthorizationRequestRepository cookieOAuth2Repo;
 
+    @Bean
+    public OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler(JwtService jwtService,
+                                                               UserRepository userRepository) {
+        return new OAuth2LoginSuccessHandler(jwtService, userRepository);
+    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
