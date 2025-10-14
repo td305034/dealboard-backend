@@ -5,10 +5,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -23,13 +26,32 @@ public class User implements UserDetails {
     @Id
     @GeneratedValue
     private Integer id;
+
+    @Column(name = "first_name", nullable = false)
     private String firstName;
+
+    @Column(name = "last_name", nullable = false)
     private String lastName;
+
+    @Column(unique = true, nullable = false)
     private String email;
+
     private String password;
 
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    @Enumerated(EnumType.STRING)
+    private AuthProvider provider;
+
+
+    @CreationTimestamp
+    @Column(updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
+
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

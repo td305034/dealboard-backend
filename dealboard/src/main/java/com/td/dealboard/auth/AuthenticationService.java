@@ -1,6 +1,7 @@
 package com.td.dealboard.auth;
 
 import com.td.dealboard.config.JwtService;
+import com.td.dealboard.exceptions.UserAlreadyExistsException;
 import com.td.dealboard.user.Role;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
@@ -20,10 +21,15 @@ public class AuthenticationService {
     private final AuthenticationManager authenticationManager;
 
     public AuthenticationResponse register(RegisterRequest request){
+        String email = request.getEmail();
+        if (userRepository.existsByEmail(email)) {
+            throw new UserAlreadyExistsException(email);
+        }
+
         User user = User.builder()
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                .email(request.getEmail())
+                .email(email)
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.USER)
                 .build();
