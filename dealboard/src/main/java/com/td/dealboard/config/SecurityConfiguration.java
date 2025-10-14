@@ -1,9 +1,7 @@
 package com.td.dealboard.config;
 
 import com.td.dealboard.auth.CustomOAuth2UserService;
-import com.td.dealboard.auth.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.td.dealboard.auth.OAuth2LoginSuccessHandler;
-import com.td.dealboard.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,13 +22,6 @@ public class SecurityConfiguration {
     private final AuthenticationProvider authenticationProvider;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
-    private final HttpCookieOAuth2AuthorizationRequestRepository cookieOAuth2Repo;
-
-    @Bean
-    public OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler(JwtService jwtService,
-                                                               UserRepository userRepository) {
-        return new OAuth2LoginSuccessHandler(jwtService, userRepository);
-    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
@@ -43,7 +34,9 @@ public class SecurityConfiguration {
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
                             "/swagger-resources/**",
-                            "/webjars/**"
+                            "/webjars/**",
+                            "/oauth2/**",
+                            "/login/oauth2/**"
                     )
                     .permitAll()
                     .anyRequest()
@@ -53,15 +46,11 @@ public class SecurityConfiguration {
                     .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
-                .oauth2Login(oauth2 -> oauth2
-                        .authorizationEndpoint(a -> a
-                                .baseUri("/oauth2/authorization")
-                                .authorizationRequestRepository(cookieOAuth2Repo)
-                        )
+                .oauth2Login(oauth -> oauth
                         .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
                         .successHandler(oAuth2LoginSuccessHandler)
-                );
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 }
