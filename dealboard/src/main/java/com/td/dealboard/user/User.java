@@ -24,14 +24,13 @@ import java.util.List;
 public class User implements UserDetails {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(name = "first_name", nullable = false)
-    private String firstName;
+    @Column(unique = true)
+    private String sub; //google id
 
-    @Column(name = "last_name")
-    private String lastName;
+    private String name;
 
     @Column(unique = true, nullable = false)
     private String email;
@@ -44,6 +43,7 @@ public class User implements UserDetails {
     @Enumerated(EnumType.STRING)
     private AuthProvider provider;
 
+    private String picture;
 
     @CreationTimestamp
     @Column(updatable = false)
