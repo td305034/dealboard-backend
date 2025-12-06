@@ -1,5 +1,6 @@
 package com.td.dealboard.config;
 
+import com.td.dealboard.auth.JwtService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

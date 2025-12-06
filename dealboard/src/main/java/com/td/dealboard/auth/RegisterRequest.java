@@ -19,10 +19,7 @@ import lombok.NoArgsConstructor;
 public class RegisterRequest {
 
     @NotBlank
-    private String firstName;
-
-    @NotBlank
-    private String lastName;
+    private String name;
 
     @NotBlank
     @Email(message = "Must be a correct email adress")
@@ -43,7 +40,7 @@ public class RegisterRequest {
     )
     private String password;
 
-    @NotNull
-    @Enumerated(EnumType.STRING)
-    private Gender gender;
+//    @NotNull
+//    @Enumerated(EnumType.STRING)
+//    private Gender gender;
 }

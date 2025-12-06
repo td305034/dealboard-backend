@@ -1,4 +1,4 @@
-package com.td.dealboard.config;
+package com.td.dealboard.auth;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;

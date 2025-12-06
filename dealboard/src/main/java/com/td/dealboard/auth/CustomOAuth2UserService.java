@@ -33,8 +33,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 () -> {
                     User newUser = User.builder()
                             .email(email)
-                            .firstName(firstName)
-                            .lastName(lastName)
+                            .name(firstName)
                             .role(Role.USER)
                             .provider(AuthProvider.GOOGLE)
                             .build();

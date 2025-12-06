@@ -1,6 +1,5 @@
 package com.td.dealboard.auth;
 
-import com.td.dealboard.config.JwtService;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
 import jakarta.servlet.ServletException;
