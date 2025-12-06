@@ -33,6 +33,7 @@ build/
 .vscode/
 
 .env
-/data/raw/*
-/data/jpg/*
-/data/pdf/*
+/data/postgres/
+/data/raw/
+/data/jpg/
+/data/pdf/
