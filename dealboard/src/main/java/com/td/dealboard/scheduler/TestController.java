@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -22,7 +24,8 @@ import static com.td.dealboard.scrapper.PythonRunner.runForLeaflets;
 
 @Component
 @RequiredArgsConstructor
-public class DailyScheduler {
+@RestController("/api/test")
+public class TestController {
     private static final Logger log = LoggerFactory.getLogger(DailyScheduler.class);
     private final PdfScraperService pdfScraperService;
     private final StoreRepository storeRepository;
@@ -30,20 +33,23 @@ public class DailyScheduler {
     private final TaskExecutor scrapperExecutor; // bean "scrapperExecutor"
     private final JpgToJsonService scrapperService;
 
+    @GetMapping("/process-leaflets")
+    public void processLeaflets() {
+        try {
+            System.out.println("DailyScheduler running...");
 
-    //@Scheduled(cron = "${my.scraper.cron}", zone = "${my.scraper.zone}")
-//    @Scheduled(fixedRate=20000)
-//    public void runDailyTask() {
-//        try {
-//            System.out.println("DailyScheduler running...");
-//            List<Store> stores = storeRepository.findAll();
-//            pdfScraperService.runForStores(stores);
-//            List<Leaflet> leaflets = leafletRepository.findAll();
-//
-//            Executor executor = runnable -> scrapperExecutor.execute(runnable);
-//            scrapperService.processFilesParallel(leaflets, executor, 60);
-//        } catch (Exception e) {
-//            log.error("Error in DailyScheduler: {}", e.getMessage(), e);
-//        }
-//    }
+            List<Leaflet> leaflets = leafletRepository.findAll();
+
+            Executor executor = runnable -> scrapperExecutor.execute(runnable);
+            scrapperService.processFilesParallel(leaflets, executor, 60);
+        } catch (Exception e) {
+            log.error("Error in DailyScheduler: {}", e.getMessage(), e);
+        }
+    }
+
+    @GetMapping("/get-leaflets")
+    public void getLeaflets() {
+        List<Store> stores = storeRepository.findAll();
+        pdfScraperService.runForStores(stores);
+    }
 }

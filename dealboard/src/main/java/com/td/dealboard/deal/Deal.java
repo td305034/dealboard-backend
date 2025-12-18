@@ -8,7 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name="deal")
+@Table(name="deals")
 public class Deal {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,10 +23,15 @@ public class Deal {
     @Column(nullable = false)
     private String category;
 
+    @Column(nullable = false)
+    private String categoryCode;
+
     private String description;
-    private Double price;
+    private Double priceValue;
+    private String priceAlt;
+    private String unit;
     private Integer discountPercentage;
+    private String promoNotes;
 
-    private String imageUrl;
-
+    //private String imageUrl;
 }

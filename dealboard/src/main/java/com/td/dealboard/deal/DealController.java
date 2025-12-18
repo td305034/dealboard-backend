@@ -18,13 +18,11 @@ public class DealController {
                         .name("Deal 1")
                         .description("Description 1")
                         .store("Store 1")
-                        .price(9.99)
                         .build(),
                 Deal.builder()
                         .name("Deal 2")
                         .description("Description 2")
                         .store("Store 2")
-                        .price(19.99)
                         .build()
         );
 

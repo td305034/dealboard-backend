@@ -11,8 +11,8 @@ public class AsyncConfig {
     @Bean("scrapperExecutor")
     public TaskExecutor scrapperExecutor() {
         ThreadPoolTaskExecutor exec = new ThreadPoolTaskExecutor();
-        exec.setCorePoolSize(30);
-        exec.setMaxPoolSize(60);
+        exec.setCorePoolSize(8);
+        exec.setMaxPoolSize(16);
         exec.setQueueCapacity(200);
         exec.setThreadNamePrefix("scrapper-");
         exec.initialize();

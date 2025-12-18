@@ -48,10 +48,9 @@ public class DealInitializer implements CommandLineRunner {
                     .name(category + " " + i)
                     .store(store)
                     .category(category)
-                    .price(randomPrice(2, 80))
+                    .priceValue(randomPrice(2, 80))
                     .discountPercentage(random.nextInt(50))
                     .description("Przykładowy produkt: " + category + " marki " + brand)
-                    .imageUrl("https://picsum.photos/300?random=" + i)
                     .build();
 
             dealRepository.save(deal);
