@@ -9,6 +9,8 @@ import com.td.dealboard.user.AuthProvider;
 import com.td.dealboard.user.Role;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -42,9 +44,6 @@ public class AuthenticationService {
 
     public AuthenticationResponse register(RegisterRequest request){
         String email = request.getEmail();
-        if (userRepository.existsByEmail(email)) {
-            throw new UserAlreadyExistsException(email);
-        }
 
         User user = User.builder()
                 .name(request.getName())
@@ -151,5 +150,17 @@ public class AuthenticationService {
 
     public boolean verifyState(String state) {
         return validStates.remove(state) != null;
+    }
+
+    public boolean userExists(String email) {
+        return userRepository.findByEmail(email).isPresent();
+    }
+    public boolean isPasswordCorrect(String email, String password) {
+        User user = userRepository.findByEmail(email).orElseThrow();
+        return passwordEncoder.matches(password, user.getPassword());
+    }
+
+    public boolean emailExists(String email) {
+        return userRepository.findByEmail(email).isPresent();
     }
 }

@@ -1,12 +1,6 @@
 package com.td.dealboard.auth;
 
-import com.td.dealboard.user.Gender;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,29 +12,27 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class RegisterRequest {
 
-    @NotBlank
+    @NotBlank(message = ErrorMessages.NAME_REQUIRED)
+    @Size(min = 2, message = ErrorMessages.NAME_TOO_SHORT)
     private String name;
 
-    @NotBlank
-    @Email(message = "Must be a correct email adress")
+    @NotBlank(message = ErrorMessages.EMAIL_REQUIRED)
+    @Email(message = ErrorMessages.EMAIL_INVALID)
     private String email;
 
-    @NotBlank
+    @NotBlank(message = ErrorMessages.PASSWORD_REQUIRED)
     @Pattern(
             regexp = "^(?=.*[A-Z]).+$",
-            message = "Password must contain at least one capital letter"
+            message = ErrorMessages.PASSWORD_UPPERCASE
     )
     @Pattern(
             regexp = "^(?=.*\\d).+$",
-            message = "Password must contain at least one number"
+            message = ErrorMessages.PASSWORD_DIGIT
     )
     @Pattern(
             regexp = "^(?=.*[^A-Za-z0-9]).+$",
-            message = "Password must contain at least one special sign"
+            message = ErrorMessages.PASSWORD_SPECIAL
     )
+    @Size(min = 8, message = ErrorMessages.PASSWORD_TOO_SHORT)
     private String password;
-
-//    @NotNull
-//    @Enumerated(EnumType.STRING)
-//    private Gender gender;
 }

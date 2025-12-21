@@ -1,6 +1,8 @@
 package com.td.dealboard.exceptions;
 
 import com.nimbusds.jose.JOSEException;
+import com.td.dealboard.auth.ErrorMessages;
+import com.td.dealboard.auth.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -28,22 +30,6 @@ public class GlobalExceptionHandler {
                 ));
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<?> handleValidationErrors(MethodArgumentNotValidException ex) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("timestamp", LocalDateTime.now().toString());
-        body.put("status", HttpStatus.BAD_REQUEST.value());
-        body.put("error", "Validation failed");
-
-        Map<String, String> errors = new HashMap<>();
-        for (FieldError fieldError : ex.getBindingResult().getFieldErrors()) {
-            errors.put(fieldError.getField(), fieldError.getDefaultMessage());
-        }
-        body.put("errors", errors);
-
-        return ResponseEntity.badRequest().body(body);
-    }
-
     @ExceptionHandler(ParseException.class)
     public ResponseEntity<Map<String, Object>> handleParsingErrors(ParseException ex) {
         Map<String, Object> body = new HashMap<>();
@@ -52,7 +38,7 @@ public class GlobalExceptionHandler {
         body.put("error", "Validation failed");
 
         Map<String, String> errors = new HashMap<>();
-        errors.put("message", ex.getMessage()); // np. szczegóły błędu parsowania
+        errors.put("message", ex.getMessage());
         body.put("errors", errors);
 
         return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
@@ -72,4 +58,49 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(body, HttpStatus.UNAUTHORIZED);
     }
 
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ErrorResponse> handleValidationException(ValidationException ex) {
+        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse.setFieldErrors(ex.getFieldErrors());
+        errorResponse.setStatus(HttpStatus.BAD_REQUEST.value());
+        errorResponse.setMessage(ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(errorResponse);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValid(
+            MethodArgumentNotValidException ex) {
+
+        ErrorResponse errorResponse = new ErrorResponse();
+        Map<String, String> fieldErrors = new HashMap<>();
+
+        ex.getBindingResult().getAllErrors().forEach((error) -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            fieldErrors.put(fieldName, errorMessage);
+        });
+
+        errorResponse.setFieldErrors(fieldErrors);
+        errorResponse.setStatus(HttpStatus.BAD_REQUEST.value());
+        errorResponse.setMessage("Validation failed");
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(errorResponse);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse.addFieldError("general", ErrorMessages.GENERAL_ERROR);
+        errorResponse.setStatus(HttpStatus.INTERNAL_SERVER_ERROR.value());
+        errorResponse.setMessage(ex.getMessage());
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(errorResponse);
+    }
 }

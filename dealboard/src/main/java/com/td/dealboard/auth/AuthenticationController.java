@@ -3,6 +3,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import com.td.dealboard.exceptions.ValidationException;
 import com.td.dealboard.user.AuthProvider;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
@@ -51,13 +52,35 @@ public class AuthenticationController {
     public ResponseEntity<AuthenticationResponse> register(
             @Valid @RequestBody RegisterRequest request
     ){
-        System.out.println("Received registration request for email: " + request.getEmail());
+        Map<String, String> errors = new HashMap<>();
+
+        if (authenticationService.emailExists(request.getEmail())) {
+            errors.put("email", ErrorMessages.EMAIL_ALREADY_EXISTS);
+            throw new ValidationException(errors);
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException(errors);
+        }
+
         return ResponseEntity.ok(authenticationService.register(request));
     }
     @PostMapping("/authenticate")
     public ResponseEntity<AuthenticationResponse> authenticate(
-            @RequestBody AuthenticationRequest request
+            @Valid @RequestBody AuthenticationRequest request
     ){
+        Map<String, String> errors = new HashMap<>();
+
+        if (!authenticationService.userExists(request.getEmail())) {
+            errors.put("email", ErrorMessages.EMAIL_NOT_FOUND);
+            throw new ValidationException(errors);
+        }
+
+        if (!authenticationService.isPasswordCorrect(request.getEmail(), request.getPassword())) {
+            errors.put("password", ErrorMessages.PASSWORD_INCORRECT);
+            throw new ValidationException(errors);
+        }
+
         return ResponseEntity.ok(authenticationService.authenticate(request));
     }
 
