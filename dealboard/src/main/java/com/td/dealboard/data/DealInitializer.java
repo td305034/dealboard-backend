@@ -50,7 +50,6 @@ public class DealInitializer implements CommandLineRunner {
                     .category(category)
                     .priceValue(randomPrice(2, 80))
                     .discountPercentage(random.nextInt(50))
-                    .description("Przykładowy produkt: " + category + " marki " + brand)
                     .build();
 
             dealRepository.save(deal);

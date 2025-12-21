@@ -29,7 +29,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull HttpServletResponse response,
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
+//        System.out.println(">>> JwtAuthenticationFilter HIT");
+//        System.out.println(">>> URI = " + request.getRequestURI());
         final String authHeader = request.getHeader("Authorization");
+//        System.out.println(">>> Authorization = " + authHeader);
         final String jwtToken;
         final String userEmail;
         if(authHeader == null || !authHeader.startsWith("Bearer ")){

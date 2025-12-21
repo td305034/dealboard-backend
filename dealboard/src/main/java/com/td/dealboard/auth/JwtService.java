@@ -1,5 +1,6 @@
 package com.td.dealboard.auth;
 
+import com.td.dealboard.util.AppConstants;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -8,6 +9,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,8 +17,7 @@ import java.util.function.Function;
 
 @Service
 public class JwtService {
-    private static final String SECRET_KEY = System.getenv("SECRET");
-
+    //private static final String SECRET_KEY = System.getenv("SECRET");
     public String extractUsername(String token){
         return extractClaim(token, Claims::getSubject);
     }
@@ -67,7 +68,7 @@ public class JwtService {
     }
 
     private SecretKey getSignInKey() {
-        byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
+        byte[] keyBytes = AppConstants.JWT_SECRET.getString().getBytes();
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

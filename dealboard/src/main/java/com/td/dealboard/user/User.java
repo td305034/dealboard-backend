@@ -12,8 +12,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 @Data
 @Builder
@@ -30,6 +29,9 @@ public class User implements UserDetails {
     @Column(unique = true)
     private String sub; //google id
 
+    private String refreshToken;
+    private Date refreshTokenExpiry;
+
     private String name;
 
     @Column(unique = true, nullable = false)
@@ -38,7 +40,8 @@ public class User implements UserDetails {
     private String password;
 
     @Enumerated(EnumType.STRING)
-    private Role role;
+    @Column(nullable = false)
+    private Role role = Role.USER;
 
     @Enumerated(EnumType.STRING)
     private AuthProvider provider;
@@ -52,6 +55,17 @@ public class User implements UserDetails {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @ElementCollection
+    @CollectionTable(name = "user_stores")
+    @Column(name = "stores")
+    private Set<String> selectedStores = new HashSet<>();
+
+    @ElementCollection
+    @CollectionTable(name = "user_tracked_products")
+    @Column(name = "product_keyword")
+    private Set<String> trackedProducts = new HashSet<>();
+
+    private Boolean onboardingCompleted = false;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

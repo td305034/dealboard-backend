@@ -4,7 +4,6 @@ import jakarta.persistence.Column;
 
 public record DealDto(
         String name,
-        String description,
         String category,
         String category_code,
         String price_raw,

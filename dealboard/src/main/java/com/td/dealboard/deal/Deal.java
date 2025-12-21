@@ -26,7 +26,6 @@ public class Deal {
     @Column(nullable = false)
     private String categoryCode;
 
-    private String description;
     private Double priceValue;
     private String priceAlt;
     private String unit;

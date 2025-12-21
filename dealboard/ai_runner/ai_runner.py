@@ -64,11 +64,11 @@ prompt = f"""
     {chr(10).join('- ' + code for code, _ in categories)}
 
     Zwróć tylko JSON array, ŻADNYCH komentarzy, wyjaśnień, ani znaczników markdown.
-    Nie każda strona musi zawierać okazje, w takim wypadku zwróć [].
     Zwróć WYŁĄCZNIE poprawny JSON — zawsze tablicę (np. [] gdy brak okazji). Nie zwracaj pustego stringa ani żadnego innego tekstu.
-    Jeśli cena nie jest podana to wypełnij pole price_alt informacją typu "1+1 gratis" lub "Drugi produkt -50%".
+    Jeśli cena nie jest podana to wypełnij pole price_alt informacją typu "1+1 gratis" lub "Drugi produkt -50%", ale nie pusty slogan typu "Super cena".
     Obraz, który dostaniesz może zawierać tekst typu "dowolna odzież, obuwie itd. 50% taniej", ale nie ma on być traktowany jako okazja promocyjna - również pomiń go w odpowiedzi, bierz pod uwagę tylko konkretne produkty jak np. "łaciate masło ekstra" czy "rzeźnik schab wieprzowy bez kości".
     Pamiętaj, żeby użyć podwójnych cudzysłowów " do oznaczenia stringów w JSON.
+    Jeśli za pomocą OCR odczytasz jakiś tekst i będzie ewidentna literówka, np. "załać" zamiast "zapłać", to popraw to w odpowiedzi.
     """
 
 text = ""

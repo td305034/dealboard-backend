@@ -41,5 +41,7 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         String targetUrl = redirectUri + "?token=" + URLEncoder.encode(jwtToken, StandardCharsets.UTF_8);
         response.sendRedirect(targetUrl);
+
+        System.out.println(jwtToken);
     }
 }

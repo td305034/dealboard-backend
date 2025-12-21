@@ -1,43 +1,34 @@
 package com.td.dealboard.auth;
-
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.td.dealboard.user.AuthProvider;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
 import com.td.dealboard.util.AppConstants;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.*;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.view.RedirectView;
 import org.springframework.web.util.UriComponentsBuilder;
-import reactor.core.publisher.Mono;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.time.Instant;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 
 import static com.td.dealboard.util.AppConstants.*;
 
@@ -47,6 +38,7 @@ import static com.td.dealboard.util.AppConstants.*;
 public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
+    private final JwtService jwtService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -140,8 +132,6 @@ public class AuthenticationController {
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(form, headers);
 
-        System.out.println(request.getBody());
-        System.out.println(request.getHeaders());
         ResponseEntity<String> response = restTemplate.postForEntity(
                 tokenUrl,
                 request,
@@ -151,9 +141,7 @@ public class AuthenticationController {
         JsonNode data;
         try {
             data = objectMapper.readTree(response.getBody());
-            System.out.println("Response JSON: " + data.toPrettyString());
         } catch (Exception e) {
-            System.err.println("Error parsing response: " + e.getMessage());
             return ResponseEntity.status(500).body(Map.of("error", "Failed to parse token response"));
         }
 
@@ -176,7 +164,7 @@ public class AuthenticationController {
             final Date issuedAt = new Date();
             final Date expiration = Date.from(Instant.now().plusSeconds(AppConstants.COOKIE_MAX_AGE.getInt()));
 
-            userRepository.findByEmail(emailClaim.toString())
+            User user = userRepository.findByEmail(emailClaim.toString())
                     .orElseGet(() -> {
                         User newUser = new User();
                         newUser.setEmail(emailClaim != null ? emailClaim.toString() : null);
@@ -187,9 +175,14 @@ public class AuthenticationController {
                         return userRepository.save(newUser);
                     });
 
+            String refreshToken = UUID.randomUUID().toString();
+            user.setRefreshToken(refreshToken);
+            user.setRefreshTokenExpiry(Date.from(Instant.now().plus(AppConstants.REFRESH_TOKEN_MAX_AGE.getInt(), ChronoUnit.SECONDS)));
+            userRepository.save(user);
+
             String accessToken = Jwts.builder()
                     .setClaims(userInfoWithoutExp)
-                    .setSubject(claims.getSubject())
+                    .setSubject(emailClaim.toString())
                     .setIssuedAt(issuedAt)
                     .setExpiration(expiration)
                     .signWith(Keys.hmacShaKeyFor(AppConstants.JWT_SECRET.getString().getBytes(StandardCharsets.UTF_8)), SignatureAlgorithm.HS256)
@@ -198,19 +191,31 @@ public class AuthenticationController {
             String[] parts = accessToken.split("\\.");
 
             if(platform.equals("web")){
-                ResponseCookie cookie = ResponseCookie.from(AppConstants.COOKIE_NAME.getString(), accessToken)
+                ResponseCookie accessCookie = ResponseCookie.from(AppConstants.COOKIE_NAME.getString(), accessToken)
                         .httpOnly(true)
-                        .secure(false) // ustaw true dla HTTPS
+                        .secure(false)
                         .path("/")
                         .maxAge(AppConstants.COOKIE_MAX_AGE.getInt())
                         .sameSite("Lax")
                         .build();
 
+                ResponseCookie refreshCookie = ResponseCookie.from(AppConstants.REFRESH_COOKIE_NAME.getString(), refreshToken)
+                        .httpOnly(true)
+                        .secure(true) // true dla HTTPS
+                        .path("/api/auth/auth/refresh") // endpoint do refresh token
+                        .maxAge(AppConstants.REFRESH_TOKEN_MAX_AGE.getInt())
+                        .sameSite("Strict")
+                        .build();
+
+
                 return ResponseEntity.ok()
-                        .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                        .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                        .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                         .body(Map.of("success", "true", "issuedAt", issuedAt.toString(), "expiresAt", expiration.toString()));
             }
-            return ResponseEntity.ok(Map.of("accessToken", accessToken));
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("accessToken", accessToken, "refreshToken", refreshToken));
         } catch (ParseException e) {
             System.err.println("Error decoding ID token: " + e.getMessage());
             return ResponseEntity.status(500).body(Map.of("error", "Failed to decode ID token"));
@@ -231,41 +236,71 @@ public class AuthenticationController {
         if (token == null || token.isBlank()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Not authenticated"));
         }
-
         try {
-            SignedJWT signedJWT = SignedJWT.parse(token);
-            boolean valid = signedJWT.verify(new MACVerifier(AppConstants.JWT_SECRET.getString().getBytes(StandardCharsets.UTF_8)));
-            if (!valid) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid token"));
-            }
+            Jws<Claims> jws = Jwts.parser()
+                    .setSigningKey(Keys.hmacShaKeyFor(AppConstants.JWT_SECRET.getString().getBytes(StandardCharsets.UTF_8)))
+                    .build()
+                    .parseClaimsJws(token);
 
-            JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
+            Claims claims = jws.getBody();
 
             Long cookieExpiration = null;
-
-            if (claims.getIssueTime() != null) {
-                long iatSeconds = claims.getIssueTime().getTime() / 1000L;
+            if (claims.getIssuedAt() != null) {
+                long iatSeconds = claims.getIssuedAt().getTime() / 1000L;
                 long maxAgeSeconds = AppConstants.COOKIE_MAX_AGE.getInt();
-                cookieExpiration = Long.valueOf(iatSeconds + maxAgeSeconds);
+                cookieExpiration = iatSeconds + maxAgeSeconds;
             }
 
-            Map<String, Object> body = new HashMap<>(claims.getClaims());
+            Map<String, Object> body = new HashMap<>(claims);
             body.put("cookieExpiration", cookieExpiration);
+
+            User user = userRepository.findById(Integer.valueOf(claims.getSubject()))
+                    .orElseThrow();
+            body.put("onboardingCompleted", user.getOnboardingCompleted());
 
             return ResponseEntity.ok(body);
 
-        } catch (ParseException | JOSEException e) {
+        } catch (ExpiredJwtException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Token expired"));
+        } catch (SignatureException | MalformedJwtException | UnsupportedJwtException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", "Invalid token"));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "Server error"));
         }
-
-
     }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<Map<String, String>> refreshToken(
+            @CookieValue(name = "refreshToken", required = false) String refreshTokenCookie,
+            @RequestBody(required = false) Map<String, String> body
+    ) {
+        String refreshToken = refreshTokenCookie;
+        if ((refreshToken == null || refreshToken.isBlank()) && body != null) {
+            refreshToken = body.get("refreshToken");
+        }
+
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "No refresh token provided"));
+        }
+
+        User user = userRepository.findByRefreshToken(refreshToken)
+                .orElseThrow(() -> new RuntimeException("Invalid refresh token"));
+
+        if (user.getRefreshTokenExpiry() == null || user.getRefreshTokenExpiry().before(new Date())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Refresh token expired"));
+        }
+
+        String newAccessToken = jwtService.generateToken(user);
+
+        return ResponseEntity.ok(Map.of("accessToken", newAccessToken));
+    }
+
+
 
     @PostMapping("/logout")
     public ResponseEntity<Map<String, Object>> logout() {
-        // Stwórz ciasteczko access z Max-Age=0 aby je usunąć
         ResponseCookie accessCookie = ResponseCookie.from(AppConstants.COOKIE_NAME.getString(), "")
                 .path("/")
                 .maxAge(0)
@@ -274,9 +309,8 @@ public class AuthenticationController {
                 .sameSite("Lax")
                 .build();
 
-        // Stwórz ciasteczko refresh z Max-Age=0 aby je usunąć
         ResponseCookie refreshCookie = ResponseCookie.from(AppConstants.REFRESH_COOKIE_NAME.getString(), "")
-                .path("/")
+                .path("/api/auth/refresh")
                 .maxAge(0)
                 .httpOnly(true)
                 .secure(false)
@@ -284,11 +318,34 @@ public class AuthenticationController {
                 .build();
 
         HttpHeaders headers = new HttpHeaders();
-        // Dodaj oba nagłówki Set-Cookie (dwa satelitarne ciasteczka)
         headers.add(HttpHeaders.SET_COOKIE, accessCookie.toString());
         headers.add(HttpHeaders.SET_COOKIE, refreshCookie.toString());
 
         return new ResponseEntity<>(Map.of("success", true), headers, HttpStatus.OK);
+    }
+
+    @GetMapping("/verify")
+    public ResponseEntity<?> verifyToken(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Invalid token"));
+        }
+
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElse(null);
+
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("error", "User not found"));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "valid", true,
+                "email", user.getEmail(),
+                "name", user.getName(),
+                "onboardingCompleted", user.getOnboardingCompleted() != null && user.getOnboardingCompleted()
+
+        ));
     }
 
     private Map<String, String> parseCookieHeader(String cookieHeader) {
