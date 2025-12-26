@@ -17,7 +17,6 @@ import java.util.function.Function;
 
 @Service
 public class JwtService {
-    //private static final String SECRET_KEY = System.getenv("SECRET");
     public String extractUsername(String token){
         return extractClaim(token, Claims::getSubject);
     }
@@ -38,6 +37,7 @@ public class JwtService {
     public String generateToken(
             Map<String, Object> extraClaims,
             UserDetails userDetails){
+
         return Jwts
                 .builder()
                 .claims(extraClaims)

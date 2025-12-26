@@ -33,7 +33,9 @@ public class DealController {
             @RequestParam(defaultValue = "20") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        return dealService.getDealsByUserStoresAndDeals(user.getId(), pageable);
+        Page<DealDto> deals = dealService.getDealsByUserStoresAndDeals(user.getId(), pageable);
+
+        return deals;
     }
 
     @GetMapping("/products-suggestions")

@@ -38,6 +38,7 @@ public class DealService {
 
     private DealDto toDto(Deal deal) {
         return new DealDto(
+                deal.getId(),
                 deal.getName(),
                 deal.getStore(),
                 deal.getCategory(),

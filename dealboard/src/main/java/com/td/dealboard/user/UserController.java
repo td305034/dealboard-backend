@@ -1,5 +1,6 @@
 package com.td.dealboard.user;
 
+import com.td.dealboard.auth.JwtService;
 import com.td.dealboard.deal.DealRepository;
 import com.td.dealboard.deal.DealService;
 import org.apache.coyote.Response;
@@ -10,10 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/users")
@@ -23,14 +21,18 @@ public class UserController {
     private UserRepository userRepository;
     @Autowired
     private DealService dealService;
+    @Autowired
+    private JwtService jwtService;
 
     @PostMapping("/tracked-products")
     public ResponseEntity<?> updateTrackedProducts(
             @AuthenticationPrincipal User user,
             @RequestBody Set<String> products
     ) {
+        System.out.println("/TRACKED-PRODUCTS: " + user.getId());
+        System.out.println("User ID: " + user.getId());
+        System.out.println("User email: " + user.getEmail());
         user.setTrackedProducts(products);
-        user.setOnboardingCompleted(true);
         userRepository.save(user);
         return ResponseEntity.ok(Map.of("success", true, "count", products.size()));
     }
@@ -46,10 +48,23 @@ public class UserController {
         return ResponseEntity.ok(Map.of("success", true, "count", stores.size()));
     }
 
-    @GetMapping("/onboarding-status")
-    public boolean isOnboardingCompleted(
+    @PostMapping("/complete-onboarding")
+    public ResponseEntity<?> completeOnboarding(
             @AuthenticationPrincipal User user
-    ){
-        return user.getOnboardingCompleted();
+    ) {
+        user.setOnboardingCompleted(true);
+        userRepository.save(user);
+
+        Map<String, Object> userInfoWithoutExp = new HashMap<>();
+        userInfoWithoutExp.put("sub", user.getEmail());
+        userInfoWithoutExp.put("email", user.getEmail());
+        userInfoWithoutExp.put("name", user.getName());
+        userInfoWithoutExp.put("picture", user.getPicture());
+        userInfoWithoutExp.put("provider", user.getProvider());
+        userInfoWithoutExp.put("onboardingCompleted", user.getOnboardingCompleted());
+
+        String accessToken = jwtService.generateToken(userInfoWithoutExp, user);
+        return ResponseEntity.ok(Map.of("accessToken", accessToken));
     }
+
 }

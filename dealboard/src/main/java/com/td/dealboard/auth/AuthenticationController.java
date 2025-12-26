@@ -173,19 +173,10 @@ public class AuthenticationController {
             SignedJWT signedJWT = SignedJWT.parse(data.get("id_token").asText());
             JWTClaimsSet claims = signedJWT.getJWTClaimsSet();
 
-            Map<String, Object> userInfoWithoutExp = new HashMap<>();
             String subject = claims.getSubject();
             Object emailClaim = claims.getClaim("email");
             Object nameClaim = claims.getClaim("name");
             Object pictureClaim = claims.getClaim("picture");
-
-            userInfoWithoutExp.put("sub", subject);
-            userInfoWithoutExp.put("email", emailClaim);
-            userInfoWithoutExp.put("name", nameClaim);
-            userInfoWithoutExp.put("picture", pictureClaim);
-
-            final Date issuedAt = new Date();
-            final Date expiration = Date.from(Instant.now().plusSeconds(AppConstants.COOKIE_MAX_AGE.getInt()));
 
             User user = userRepository.findByEmail(emailClaim.toString())
                     .orElseGet(() -> {
@@ -195,8 +186,21 @@ public class AuthenticationController {
                         newUser.setProvider(AuthProvider.GOOGLE);
                         newUser.setSub(subject);
                         newUser.setPicture(pictureClaim != null ? pictureClaim.toString() : null);
+                        newUser.setOnboardingCompleted(false);
                         return userRepository.save(newUser);
                     });
+
+            Map<String, Object> userInfoWithoutExp = new HashMap<>();
+            userInfoWithoutExp.put("sub", subject);
+            userInfoWithoutExp.put("email", emailClaim);
+            userInfoWithoutExp.put("name", nameClaim);
+            userInfoWithoutExp.put("picture", pictureClaim);
+            userInfoWithoutExp.put("provider", "google");
+            userInfoWithoutExp.put("onboardingCompleted", user.getOnboardingCompleted());
+
+            final Date issuedAt = new Date();
+            final Date expiration = Date.from(Instant.now().plusSeconds(AppConstants.COOKIE_MAX_AGE.getInt()));
+
 
             String refreshToken = UUID.randomUUID().toString();
             user.setRefreshToken(refreshToken);
@@ -315,7 +319,15 @@ public class AuthenticationController {
                     .body(Map.of("error", "Refresh token expired"));
         }
 
-        String newAccessToken = jwtService.generateToken(user);
+        Map<String, Object> userInfoWithoutExp = new HashMap<>();
+        userInfoWithoutExp.put("sub", user.getEmail());
+        userInfoWithoutExp.put("email", user.getEmail());
+        userInfoWithoutExp.put("name", user.getName());
+        userInfoWithoutExp.put("picture", user.getPicture());
+        userInfoWithoutExp.put("provider", user.getProvider());
+        userInfoWithoutExp.put("onboardingCompleted", user.getOnboardingCompleted());
+
+        String newAccessToken = jwtService.generateToken(userInfoWithoutExp, user);
 
         return ResponseEntity.ok(Map.of("accessToken", newAccessToken));
     }
@@ -367,7 +379,6 @@ public class AuthenticationController {
                 "email", user.getEmail(),
                 "name", user.getName(),
                 "onboardingCompleted", user.getOnboardingCompleted() != null && user.getOnboardingCompleted()
-
         ));
     }
 

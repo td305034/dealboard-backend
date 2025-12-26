@@ -4,13 +4,11 @@ import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import com.td.dealboard.exceptions.UserAlreadyExistsException;
 import com.td.dealboard.user.AuthProvider;
 import com.td.dealboard.user.Role;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
+import com.td.dealboard.util.AppConstants;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -25,7 +23,10 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import java.text.ParseException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -43,7 +44,7 @@ public class AuthenticationService {
     private Map<String, Boolean> validStates = new ConcurrentHashMap<>();
 
     public AuthenticationResponse register(RegisterRequest request){
-        String email = request.getEmail();
+        String email = request.getEmail().toLowerCase();
 
         User user = User.builder()
                 .name(request.getName())
@@ -51,11 +52,25 @@ public class AuthenticationService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(Role.USER)
                 .provider(AuthProvider.LOCAL)
+                .onboardingCompleted(false)
                 .build();
         userRepository.save(user);
-        String jwtToken = jwtService.generateToken(user);
+        Map<String, Object> userInfoWithoutExp = new HashMap<>();
+        userInfoWithoutExp.put("email", user.getEmail());
+        userInfoWithoutExp.put("name", user.getName());
+        userInfoWithoutExp.put("picture", user.getPicture());
+        userInfoWithoutExp.put("provider", user.getProvider());
+        userInfoWithoutExp.put("onboardingCompleted", user.getOnboardingCompleted());
+        String jwtToken = jwtService.generateToken(userInfoWithoutExp, user);
+
+        String refreshToken = UUID.randomUUID().toString();
+        user.setRefreshToken(refreshToken);
+        user.setRefreshTokenExpiry(Date.from(Instant.now().plus(AppConstants.REFRESH_TOKEN_MAX_AGE.getInt(), ChronoUnit.SECONDS)));
+        userRepository.save(user);
+
         return AuthenticationResponse.builder()
                 .accessToken((jwtToken))
+                .refreshToken((refreshToken))
                 .build();
     }
     public AuthenticationResponse authenticate(AuthenticationRequest request){
@@ -67,9 +82,20 @@ public class AuthenticationService {
         );
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow();
-        String jwtToken = jwtService.generateToken(user);
+        Map<String, Object> userInfoWithoutExp = new HashMap<>();
+        userInfoWithoutExp.put("email", user.getEmail());
+        userInfoWithoutExp.put("name", user.getName());
+        userInfoWithoutExp.put("picture", user.getPicture());
+        userInfoWithoutExp.put("provider", user.getProvider());
+        userInfoWithoutExp.put("onboardingCompleted", user.getOnboardingCompleted());
+        String refreshToken = UUID.randomUUID().toString();
+        user.setRefreshToken(refreshToken);
+        user.setRefreshTokenExpiry(Date.from(Instant.now().plus(AppConstants.REFRESH_TOKEN_MAX_AGE.getInt(), ChronoUnit.SECONDS)));
+        userRepository.save(user);
+        String jwtToken = jwtService.generateToken(userInfoWithoutExp, user);
         return AuthenticationResponse.builder()
                 .accessToken((jwtToken))
+                .refreshToken(refreshToken)
                 .build();
     }
 

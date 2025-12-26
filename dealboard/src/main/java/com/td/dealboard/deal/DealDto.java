@@ -3,10 +3,11 @@ package com.td.dealboard.deal;
 import jakarta.persistence.Column;
 
 public record DealDto(
+        Long id,
         String name,
+        String store,
         String category,
         String category_code,
-        String price_raw,
         Double price_value,
         String price_alt,
         String unit,
