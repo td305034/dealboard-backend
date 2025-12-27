@@ -5,7 +5,7 @@ import org.springframework.data.jpa.domain.Specification;
 
 import java.util.Set;
 
-public class DealSpecification {
+public class DealSpecifications {
 
     public static Specification<Deal> hasStoresAndKeywords(
             Set<String> stores,
@@ -28,5 +28,25 @@ public class DealSpecification {
 
             return cb.and(storePredicate, keywordPredicate);
         };
+    }
+
+    public static Specification<Deal> hasStore(String store) {
+        return (root, query, cb) ->
+                store == null ? null : cb.equal(root.get("store"), store);
+    }
+
+    public static Specification<Deal> hasCategory(String category) {
+        return (root, query, cb) ->
+                category == null ? null : cb.equal(root.get("category"), category);
+    }
+
+    public static Specification<Deal> minPrice(Double minPrice) {
+        return (root, query, cb) ->
+                minPrice == null ? null : cb.ge(root.get("priceValue"), minPrice);
+    }
+
+    public static Specification<Deal> maxPrice(Double maxPrice) {
+        return (root, query, cb) ->
+                maxPrice == null ? null : cb.le(root.get("priceValue"), maxPrice);
     }
 }

@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class DailyScheduler {
     private static final Logger log = LoggerFactory.getLogger(DailyScheduler.class);
-    private final PdfScraperService pdfScraperService;
     private final StoreRepository storeRepository;
     private final LeafletRepository leafletRepository;
     private final TaskExecutor scrapperExecutor; // bean "scrapperExecutor"

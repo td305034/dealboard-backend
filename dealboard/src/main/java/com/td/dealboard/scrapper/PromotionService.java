@@ -43,8 +43,6 @@ public class PromotionService {
 
     private final LeafletRepository leafletRepo;
 
-    private final PromotionService promotionService;
-
     public void runForStores(List<Store> stores) {
         int i = 0;
         for (Store store : stores) {
@@ -60,7 +58,7 @@ public class PromotionService {
     private void processStore(Store store) throws IOException, InterruptedException {
         String name = store.getName();
 
-        List<LeafletDto> dtos = promotionService.findPromotionalLeaflet(name);
+        List<LeafletDto> dtos = findPromotionalLeaflet(name);
         System.out.println(dtos.get(0));
         if (dtos == null || dtos.isEmpty()) {
             return;

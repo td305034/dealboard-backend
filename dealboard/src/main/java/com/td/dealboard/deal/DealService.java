@@ -4,11 +4,15 @@ import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class DealService {
@@ -28,7 +32,7 @@ public class DealService {
 
         System.out.println(user.getSelectedStores() + " " + user.getTrackedProducts());
         Specification<Deal> spec =
-                DealSpecification.hasStoresAndKeywords(user.getSelectedStores(), user.getTrackedProducts());
+                DealSpecifications.hasStoresAndKeywords(user.getSelectedStores(), user.getTrackedProducts());
 
         Page<Deal> result = dealRepository.findAll(spec, pageable);
 
@@ -69,4 +73,38 @@ public class DealService {
 
         dealRepository.saveAll(entities);
     }
+
+    public Page<Deal> getAllDealsWithFilters(String store, String category, Double minPrice, Double maxPrice, Pageable pageable) {
+        Specification<Deal> spec = Specification.allOf
+                        (DealSpecifications.hasStore(store)
+                ,DealSpecifications.hasCategory(category)
+                ,DealSpecifications.minPrice(minPrice)
+                ,DealSpecifications.maxPrice(maxPrice));
+
+        Pageable safePageable = sanitize(pageable);
+        return dealRepository.findAll(spec, safePageable);
+    }
+
+    private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
+            "priceValue",
+            "discountPercentage",
+            "store",
+            "name"
+    );
+
+    private Pageable sanitize(Pageable pageable) {
+        Sort sort = pageable.getSort().stream()
+                .filter(order -> ALLOWED_SORT_FIELDS.contains(order.getProperty()))
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toList(),
+                        Sort::by
+                ));
+
+        return PageRequest.of(
+                pageable.getPageNumber(),
+                pageable.getPageSize(),
+                sort
+        );
+    }
+
 }

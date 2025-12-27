@@ -1,10 +1,13 @@
 package com.td.dealboard.deal;
 
 import com.td.dealboard.user.User;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,9 +29,26 @@ public class DealController {
             @RequestParam(defaultValue = "20") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<DealDto> deals = dealService.getDealsByUserStoresAndDeals(user.getId(), pageable);
 
-        return deals;
+        return dealService.getDealsByUserStoresAndDeals(user.getId(), pageable);
+    }
+
+    @GetMapping("/all")
+    public Page<Deal> getDeals(
+            @RequestParam(required = false) String store,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice,
+
+            @ParameterObject
+            @PageableDefault(
+                    size = 20,
+                    sort = "name",
+                    direction = Sort.Direction.ASC
+            )
+            Pageable pageable
+    ) {
+        return dealService.getAllDealsWithFilters(store, category, minPrice, maxPrice, pageable);
     }
 
     @GetMapping("/products-suggestions")
