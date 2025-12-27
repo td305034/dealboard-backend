@@ -37,21 +37,6 @@ public class PythonRunner {
 
         Process process = pb.start();
 
-//        // wczytaj cały stdout
-//        String result;
-//        try (BufferedReader reader = new BufferedReader(
-//                new InputStreamReader(process.getInputStream())
-//        )) {
-//            result = reader.lines().collect(Collectors.joining());
-//        }
-//
-//        int exitCode = process.waitFor();
-//        if (exitCode != 0) {
-//            throw new RuntimeException("Python script failed: " + exitCode);
-//        }
-//
-//        return result; // tutaj JSON
-
         try (BufferedReader outReader = new BufferedReader(
                 new InputStreamReader(process.getInputStream()));
              BufferedReader errReader = new BufferedReader(

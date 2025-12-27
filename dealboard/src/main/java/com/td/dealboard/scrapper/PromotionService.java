@@ -1,8 +1,12 @@
 package com.td.dealboard.scrapper;
 // klasy gazetki
+import com.td.dealboard.leaflet.Leaflet;
 import com.td.dealboard.leaflet.LeafletDto;
+import com.td.dealboard.leaflet.LeafletRepository;
+import com.td.dealboard.store.Store;
 import com.td.dealboard.store.StoreDto;
 import com.td.dealboard.util.Utils;
+import lombok.RequiredArgsConstructor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -10,6 +14,8 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -19,6 +25,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /*
  Trzymamy logikę biznesową. Zwracamy listę ulotek.
@@ -30,7 +37,41 @@ import java.util.List;
  nie obsługują interfejsu użytkownika, nie zapisują danych bezpośrednio do bazy - bardziej przetwarzanie i łączenie informacji
 */
 @Service
+@RequiredArgsConstructor
 public class PromotionService {
+    private static final Logger log = LoggerFactory.getLogger(PromotionService.class);
+
+    private final LeafletRepository leafletRepo;
+
+    private final PromotionService promotionService;
+
+    public void runForStores(List<Store> stores) {
+        int i = 0;
+        for (Store store : stores) {
+            try {
+                processStore(store);
+            } catch (Exception e) {
+                log.error("Error with processing {}: {}", store.getId(), e.getMessage(), e);
+            }
+            if(i++>1) break;
+        }
+    }
+
+    private void processStore(Store store) throws IOException, InterruptedException {
+        String name = store.getName();
+
+        List<LeafletDto> dtos = promotionService.findPromotionalLeaflet(name);
+        System.out.println(dtos.get(0));
+        if (dtos == null || dtos.isEmpty()) {
+            return;
+        }
+
+        List<Leaflet> entities = dtos.stream()
+                .map(Leaflet::new)
+                .collect(Collectors.toList());
+
+        leafletRepo.saveAll(entities);
+    }
 
     private final OkHttpClient client = new OkHttpClient();
     /**
@@ -235,6 +276,8 @@ public class PromotionService {
             return result;
         }
     }
+
+
     // PromotionService.java (dopisz do klasy)
 //    public List<String> getLeafletPagesById(long leafletId) throws IOException {
 //        final String[] candidates = new String[] {

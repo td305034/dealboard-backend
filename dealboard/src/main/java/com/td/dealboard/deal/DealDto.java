@@ -1,7 +1,5 @@
 package com.td.dealboard.deal;
 
-import jakarta.persistence.Column;
-
 public record DealDto(
         Long id,
         String name,

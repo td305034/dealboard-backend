@@ -31,6 +31,4 @@ public class Deal {
     private String unit;
     private Integer discountPercentage;
     private String promoNotes;
-
-    //private String imageUrl;
 }

@@ -19,12 +19,21 @@ public class UserDataInitializer {
     @Bean
     public CommandLineRunner initUsers() {
         return args -> {
-            String email = "admin@example.com";
+            String adminEmail = "admin@example.com";
+            String userEmail = "user@example.com";
 
-            if (!userRepository.existsByEmail(email)) {
+            if (!userRepository.existsByEmail(adminEmail)) {
                 User user = new User();
-                user.setEmail(email);
+                user.setEmail(adminEmail);
                 user.setPassword(passwordEncoder.encode("Admin123"));
+                user.setRole(Role.ADMIN);
+
+                userRepository.save(user);
+            }
+            if (!userRepository.existsByEmail(userEmail)) {
+                User user = new User();
+                user.setEmail(userEmail);
+                user.setPassword(passwordEncoder.encode("User123"));
                 user.setRole(Role.ADMIN);
 
                 userRepository.save(user);

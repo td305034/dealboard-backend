@@ -9,6 +9,4 @@ public class GoogleTokenResponse {
     private String id_token;
     private String scope;
     private int expires_in;
-
-
 }

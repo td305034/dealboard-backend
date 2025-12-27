@@ -1,6 +1,5 @@
 package com.td.dealboard.deal;
 
-import com.td.dealboard.store.Store;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 

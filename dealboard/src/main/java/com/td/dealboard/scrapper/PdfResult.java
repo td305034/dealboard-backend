@@ -4,8 +4,8 @@ public class PdfResult {
 
     public final String fileName;
     public final boolean ok;
-    public final int count;          // liczba poprawnych rekordów (0 przy błędzie)
-    public final String error;       // null jeśli ok=true
+    public final int count;
+    public final String error;
 
     private PdfResult(String fileName, boolean ok, int count, String error) {
         this.fileName = fileName;

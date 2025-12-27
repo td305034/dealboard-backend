@@ -105,14 +105,4 @@ public class JpgToJsonService {
             svc.shutdown();
         }
     }
-
-
-
-    private static String safeText(WebElement el) {
-    try {
-        return el.getText().trim();
-    } catch (Exception e) {
-        return "";
-    }
-}
 }
