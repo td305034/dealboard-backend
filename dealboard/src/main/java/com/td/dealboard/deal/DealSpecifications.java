@@ -30,6 +30,18 @@ public class DealSpecifications {
         };
     }
 
+    public static Specification<Deal> nameContains(String name) {
+        return (root, query, cb) -> {
+            if (name == null || name.isBlank()) {
+                return null;
+            }
+            return cb.like(
+                    cb.lower(root.get("name")),
+                    "%" + name.toLowerCase() + "%"
+            );
+        };
+    }
+
     public static Specification<Deal> hasStore(String store) {
         return (root, query, cb) ->
                 store == null ? null : cb.equal(root.get("store"), store);

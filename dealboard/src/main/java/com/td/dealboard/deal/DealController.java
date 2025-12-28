@@ -35,6 +35,7 @@ public class DealController {
 
     @GetMapping("/all")
     public Page<Deal> getDeals(
+            @RequestParam(required = false) String name,
             @RequestParam(required = false) String store,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) Double minPrice,
@@ -48,7 +49,13 @@ public class DealController {
             )
             Pageable pageable
     ) {
-        return dealService.getAllDealsWithFilters(store, category, minPrice, maxPrice, pageable);
+        return dealService.getAllDealsWithFilters(
+                name,
+                store,
+                category,
+                minPrice,
+                maxPrice,
+                pageable);
     }
 
     @GetMapping("/products-suggestions")

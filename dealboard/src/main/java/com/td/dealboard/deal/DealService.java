@@ -74,9 +74,10 @@ public class DealService {
         dealRepository.saveAll(entities);
     }
 
-    public Page<Deal> getAllDealsWithFilters(String store, String category, Double minPrice, Double maxPrice, Pageable pageable) {
-        Specification<Deal> spec = Specification.allOf
-                        (DealSpecifications.hasStore(store)
+    public Page<Deal> getAllDealsWithFilters(String name, String store, String category, Double minPrice, Double maxPrice, Pageable pageable) {
+        Specification<Deal> spec = Specification.allOf(
+                 DealSpecifications.nameContains(name)
+                ,DealSpecifications.hasStore(store)
                 ,DealSpecifications.hasCategory(category)
                 ,DealSpecifications.minPrice(minPrice)
                 ,DealSpecifications.maxPrice(maxPrice));
