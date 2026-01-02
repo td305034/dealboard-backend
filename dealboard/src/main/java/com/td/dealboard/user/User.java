@@ -63,7 +63,7 @@ public class User implements UserDetails {
     @ElementCollection
     @CollectionTable(name = "user_tracked_products")
     @Column(name = "product_keyword")
-    private Set<String> trackedProducts = new HashSet<>();
+    private Set<String> selectedProducts = new HashSet<>();
 
     @ElementCollection
     @CollectionTable(

@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -26,20 +25,20 @@ public class NotificationService {
 
     public void addTrackedProduct(User user, String productKeyword) {
         // Dodaj do trackedProducts
-        user.getTrackedProducts().add(productKeyword);
+        user.getSelectedProducts().add(productKeyword);
         // Inicjalizuj w notifications (null = nigdy nie wysłano)
         user.getNotifications().putIfAbsent(productKeyword, null);
         userRepo.save(user);
     }
 
     public void removeTrackedProduct(User user, String productKeyword) {
-        user.getTrackedProducts().remove(productKeyword);
+        user.getSelectedProducts().remove(productKeyword);
         user.getNotifications().remove(productKeyword);
         userRepo.save(user);
     }
 
     public Set<String> getTrackedProducts(User user) {
-        return user.getTrackedProducts();
+        return user.getSelectedProducts();
     }
 
     public void registerPushToken(User user, String pushToken) {

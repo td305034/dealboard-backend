@@ -17,19 +17,6 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
-    @ExceptionHandler(UserAlreadyExistsException.class)
-    public ResponseEntity<?> handleUserAlreadyExists(UserAlreadyExistsException ex) {
-        return ResponseEntity
-                .status(HttpStatus.CONFLICT)
-                .body(Map.of(
-                        "timestamp", LocalDateTime.now().toString(),
-                        "status", HttpStatus.CONFLICT.value(),
-                        "error", "Conflict",
-                        "message", ex.getMessage()
-                ));
-    }
-
     @ExceptionHandler(ParseException.class)
     public ResponseEntity<Map<String, Object>> handleParsingErrors(ParseException ex) {
         Map<String, Object> body = new HashMap<>();

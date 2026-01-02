@@ -31,9 +31,9 @@ public class DealService {
             return Page.empty();
         }
 
-        System.out.println(user.getSelectedStores() + " " + user.getTrackedProducts());
+        System.out.println(user.getSelectedStores() + " " + user.getSelectedProducts());
         Specification<Deal> spec =
-                DealSpecifications.hasStoresAndKeywords(user.getSelectedStores(), user.getTrackedProducts());
+                DealSpecifications.hasStoresAndKeywords(user.getSelectedStores(), user.getSelectedProducts());
 
         Page<Deal> result = dealRepository.findAll(spec, pageable);
 

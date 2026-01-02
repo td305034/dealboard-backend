@@ -24,32 +24,15 @@ import java.util.*;
 @RequiredArgsConstructor
 public class UserController {
     private final UserRepository userRepository;
-    private final DealService dealService;
     private final JwtService jwtService;
     private final AuthenticationService authenticationService;
     private final UserService userService;
 
-    @PostMapping("/tracked-products")
+    @PostMapping("/selected-products")
     public ResponseEntity<?> updateTrackedProducts(
             @AuthenticationPrincipal User user,
             @RequestBody(required = false) Set<String> products
     ) {
-        if (user == null) {
-            return ResponseEntity
-                    .status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of(
-                            "error", "UNAUTHORIZED",
-                            "message", "User is not authenticated"
-                    ));
-        }
-        if (products == null) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of(
-                            "error", "INVALID_REQUEST",
-                            "message", "Request body is required"
-                    ));
-        }
         if (products.isEmpty()) {
             return ResponseEntity
                     .badRequest()
@@ -70,7 +53,7 @@ public class UserController {
                     ));
         }
 
-        user.setTrackedProducts(products);
+        user.setSelectedProducts(products);
         userRepository.save(user);
 
         return ResponseEntity.ok(
@@ -90,6 +73,31 @@ public class UserController {
         userRepository.save(user);
 
         return ResponseEntity.ok(Map.of("success", true, "count", stores.size()));
+    }
+
+    @GetMapping("/selected-products")
+    public ResponseEntity<?> getSelectedProducts(@AuthenticationPrincipal User user) {
+        Set<String> products = userService.getSelectedProducts(user.getEmail());
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "success", true,
+                        "count", products.size(),
+                        "products", products
+                )
+        );
+    }
+
+    @GetMapping("/selected-stores")
+    public ResponseEntity<?> getSelectedStores(@AuthenticationPrincipal User user) {
+        Set<String> stores = userService.getSelectedStores(user.getEmail());
+        return ResponseEntity.ok(
+                Map.of(
+                        "success", true,
+                        "count", stores.size(),
+                        "stores", stores
+                )
+        );
     }
 
     @PostMapping("/complete-onboarding")
@@ -149,5 +157,14 @@ public class UserController {
         }
 
         return ResponseEntity.ok(userService.toggleNotification(email, productName, active));
+    }
+
+    @PostMapping("/change-name")
+    public ResponseEntity<?> changeName(
+            @AuthenticationPrincipal User user,
+            @RequestBody Map<String, String> body) {
+        String email = user.getEmail();
+        String accessToken = userService.changeName(email, body.get("name"));
+        return ResponseEntity.ok(Map.of("accessToken", accessToken));
     }
 }
