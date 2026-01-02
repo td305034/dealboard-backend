@@ -15,6 +15,10 @@ public class ErrorMessages {
     public static final String PASSWORD_DIGIT = "Hasło musi zawierać cyfrę";
     public static final String PASSWORD_SPECIAL = "Hasło musi zawierać znak specjalny";
 
+    //for changing password
+    public static final String OLD_PASSWORD_REQUIRED = "Musisz podać stare hasło";
+    public static final String OLD_PASSWORD_INVALID = "Stare hasło jest niepoprawne";
+
     // Name
     public static final String NAME_REQUIRED = "Imię jest wymagane";
     public static final String NAME_TOO_SHORT = "Imię musi zawierać minimum 2 znaki";

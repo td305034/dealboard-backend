@@ -3,6 +3,8 @@ package com.td.dealboard.deal;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -31,4 +33,6 @@ public class Deal {
     private String unit;
     private Integer discountPercentage;
     private String promoNotes;
+    private LocalDate validSince;
+    private LocalDate validUntil;
 }

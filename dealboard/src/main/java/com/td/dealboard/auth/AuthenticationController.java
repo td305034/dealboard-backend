@@ -47,6 +47,14 @@ public class AuthenticationController {
 
         return ResponseEntity.ok(authenticationService.register(request));
     }
+    @PostMapping("/change-password")
+    public ResponseEntity<String> changePassword(
+            @AuthenticationPrincipal User currentUser,
+            @Valid @RequestBody ChangePasswordRequest request
+    ) {
+        authenticationService.changePassword(currentUser, request);
+        return ResponseEntity.ok("Password changed successfully");
+    }
     @PostMapping("/authenticate")
     public ResponseEntity<AuthenticationResponse> authenticate(
             @Valid @RequestBody AuthenticationRequest request

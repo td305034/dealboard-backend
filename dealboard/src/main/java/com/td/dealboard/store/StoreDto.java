@@ -12,4 +12,11 @@ import lombok.NoArgsConstructor;
 public class StoreDto {
     private String shopName;
     private String url;
+
+    public Store toEntity() {
+        return Store.builder()
+                .name(this.shopName)
+                .url(this.url)
+                .build();
+    }
 }

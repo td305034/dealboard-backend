@@ -5,6 +5,7 @@ import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import com.td.dealboard.exceptions.InvalidOldPasswordException;
 import com.td.dealboard.user.AuthProvider;
 import com.td.dealboard.user.Role;
 import com.td.dealboard.user.User;
@@ -77,6 +78,14 @@ public class AuthenticationService {
                 .accessToken((jwtToken))
                 .refreshToken((refreshToken))
                 .build();
+    }
+    public void changePassword(User user, ChangePasswordRequest request) {
+        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
+            throw new InvalidOldPasswordException();
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
     public AuthenticationResponse authenticate(AuthenticationRequest request){
         authenticationManager.authenticate(
@@ -287,4 +296,6 @@ public class AuthenticationService {
         }
         return map;
     }
+
+
 }

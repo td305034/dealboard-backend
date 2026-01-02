@@ -12,12 +12,20 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.web.client.RestTemplate;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Configuration
 @RequiredArgsConstructor
 public class ApplicationConfig {
-
     private final UserRepository userRepository;
+
     @Bean
     public UserDetailsService userDetailsService(){
         return username -> userRepository.findByEmail(username)
@@ -39,5 +47,27 @@ public class ApplicationConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+    @Bean
+    public Map<String, String> categoriesMap() throws Exception {
+        Path path = Path.of("ai_runner/categories.csv");
+        Map<String, String> map = new HashMap<>();
+        List<String> lines = Files.readAllLines(path);
+
+        for (String line : lines) {
+            if (line.isBlank()) continue;
+            String[] parts = line.split(";", 2);
+            String code = parts[0].trim();
+            String label = parts.length > 1 ? parts[1].trim() : code;
+            map.put(code, label);
+        }
+
+        return map;
     }
 }

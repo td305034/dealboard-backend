@@ -1,9 +1,8 @@
-package com.td.dealboard.scheduler;
+package com.td.dealboard.scrapper;
 
 import com.td.dealboard.leaflet.Leaflet;
 import com.td.dealboard.leaflet.LeafletRepository;
-import com.td.dealboard.scrapper.JpgToJsonService;
-import com.td.dealboard.scrapper.PromotionService;
+import com.td.dealboard.scheduler.DailyScheduler;
 import com.td.dealboard.store.Store;
 import com.td.dealboard.store.StoreRepository;
 import lombok.RequiredArgsConstructor;

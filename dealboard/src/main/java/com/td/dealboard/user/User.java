@@ -65,6 +65,20 @@ public class User implements UserDetails {
     @Column(name = "product_keyword")
     private Set<String> trackedProducts = new HashSet<>();
 
+    @ElementCollection
+    @CollectionTable(
+            name = "user_push_tokens",
+            joinColumns = @JoinColumn(name = "user_id"),
+            uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "push_token"}))
+    @Column(name = "push_token")
+    private Set<String> pushTokens = new HashSet<>();
+
+    @ElementCollection
+    @CollectionTable(name = "user_notifications")
+    @MapKeyColumn(name = "product_keyword")
+    @Column(name = "notification_date")
+    private Map<String, Date> notifications = new HashMap<>();
+
     private Boolean onboardingCompleted = false;
 
     @Override

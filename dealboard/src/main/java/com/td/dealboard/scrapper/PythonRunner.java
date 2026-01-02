@@ -10,26 +10,26 @@ import java.util.stream.Collectors;
 
 public class PythonRunner {
 
-    public static void runForLeaflets(List<Leaflet> leaflets){
-        for(Leaflet l : leaflets) {
-            List<String> paths = l.getPages();
-            for (String p : paths) {
-                try {
-                    String path = Paths.get("leaflets", p).toString();
-                    String result = runPython(p);
-                    System.out.println("Result for leaflet page " + p + ": " + result);
-                } catch (Exception e) {
-                    System.out.println("Error processing leaflet: " + l.getUrl());
-                    e.printStackTrace();
-                }
-            }
-        }
-    }
-    public static String runPython(String path) throws Exception {
+//    public static void runForLeaflets(List<Leaflet> leaflets){
+//        for(Leaflet l : leaflets) {
+//            List<String> paths = l.getPages();
+//            for (String p : paths) {
+//                try {
+//                    String path = Paths.get("leaflets", p).toString();
+//                    String result = runPython("ai_runner", p);
+//                    System.out.println("Result for leaflet page " + p + ": " + result);
+//                } catch (Exception e) {
+//                    System.out.println("Error processing leaflet: " + l.getUrl());
+//                    e.printStackTrace();
+//                }
+//            }
+//        }
+//    }
+    public static String runPython(String script, String path) throws Exception {
 
         ProcessBuilder pb = new ProcessBuilder(
                 "python",
-                "ai_runner/ai_runner.py",
+                "ai_runner/" + script + ".py",
                 path
         );
 
@@ -53,6 +53,6 @@ public class PythonRunner {
             }
 
             return stdout;
-            }
+        }
     }
 }

@@ -34,7 +34,7 @@ public class DealController {
     }
 
     @GetMapping("/all")
-    public Page<Deal> getDeals(
+    public Page<DealDto> getDeals(
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String store,
             @RequestParam(required = false) String category,

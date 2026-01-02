@@ -1,21 +1,21 @@
 package com.td.dealboard.scrapper;
 
+import com.google.common.util.concurrent.RateLimiter;
 import com.td.dealboard.deal.DealDto;
 import com.td.dealboard.deal.DealService;
 import com.td.dealboard.leaflet.Leaflet;
 import lombok.RequiredArgsConstructor;
-import org.openqa.selenium.WebElement;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
+import java.time.LocalDate;
 import java.util.List;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 
-import java.io.File;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.concurrent.*;
 
 import static com.td.dealboard.util.Utils.isCorrectJsonArray;
@@ -30,6 +30,7 @@ public class JpgToJsonService {
     private final DealService dealService;
     private final ObjectMapper objectMapper;
     private final Semaphore pythonSemaphore = new Semaphore(8);
+    private static final RateLimiter tokenLimiter = RateLimiter.create(4500);
 
     public void processSingleLeaflet(Leaflet leaflet) {
         Long id = leaflet.getId();
@@ -39,20 +40,56 @@ public class JpgToJsonService {
         List<String> results = new ArrayList<>();
 
         String json;
+
+        LocalDate validSince;
+        LocalDate validUntil;
+
         try {
+            tokenLimiter.acquire(400);
             pythonSemaphore.acquire();
-            System.out.println("Thread " + Thread.currentThread().getName());
             try {
-                for(String page : pages) {
-                    json = PythonRunner.runPython(page);
-                    results.add(json);
-                }
+                json = PythonRunner.runPython("ai_runner_timeframe", pages.get(0));
+                List<Map<String, Integer>> dates =
+                        objectMapper.readValue(json, new TypeReference<>() {});
+
+                validSince = LocalDate.of(
+                        dates.get(0).get("year"),
+                        dates.get(0).get("month"),
+                        dates.get(0).get("day")
+                );
+                validUntil = LocalDate.of(
+                        dates.get(1).get("year"),
+                        dates.get(1).get("month"),
+                        dates.get(1).get("day")
+                );
+
             } finally {
                 pythonSemaphore.release();
             }
         } catch (Exception e) {
-            log.warn("PythonRunner failed for {}: {}", name, e.getMessage());
+            log.warn("PythonRunner timeframe failed for {}: {}", name, e.getMessage());
             return;
+        }
+        if (validUntil.isBefore(LocalDate.now())) {
+            log.warn("Leaflet {} is expired: {} - {}",
+                    name, validSince, validUntil);
+            return;
+        }
+        for(String page : pages) {
+            try {
+                tokenLimiter.acquire(1100);
+                pythonSemaphore.acquire();
+                try {
+                    json = PythonRunner.runPython("ai_runner", page);
+                    results.add(json);
+                } finally {
+                    pythonSemaphore.release();
+                }
+
+            } catch (Exception e) {
+                log.warn("PythonRunner failed for {} from store {}: {}", name, store, e.getMessage());
+                return;
+            }
         }
 
         for(String jsonPage : results) {
@@ -64,7 +101,7 @@ public class JpgToJsonService {
             try {
                 List<DealDto> deals = objectMapper.readValue(jsonPage, new TypeReference<List<DealDto>>() {
                 });
-                dealService.saveAllFromDto(deals, store);
+                dealService.saveAllFromDto(deals, store, validSince, validUntil);
             }
             catch (Exception e) {
                 log.warn("Deserialization failed for {}: {}", name, e.getMessage());

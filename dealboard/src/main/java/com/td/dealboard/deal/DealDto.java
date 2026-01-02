@@ -10,5 +10,6 @@ public record DealDto(
         String price_alt,
         String unit,
         Integer discount_percent,
-        String promo_notes
+        String promo_notes,
+        Boolean hasNotification
 ) {}
