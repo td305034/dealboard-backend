@@ -188,6 +188,12 @@
 			<artifactId>okhttp</artifactId>
 			<version>4.11.0</version>
 		</dependency>
+
+		<dependency>
+			<groupId>org.springframework</groupId>
+			<artifactId>spring-web</artifactId>
+		</dependency>
+
 	</dependencies>
 
 	<build>
