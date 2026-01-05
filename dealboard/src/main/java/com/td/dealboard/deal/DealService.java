@@ -4,17 +4,14 @@ import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,20 +21,92 @@ public class DealService {
     private final UserRepository userRepository;
     private final Map<String, String> categoriesMap;
 
-    public Page<DealDto> getDealsByUserStoresAndDeals(Integer userId, Pageable pageable) {
+    public Page<GroupedDealDto> getDealsFeed(
+            Integer userId,
+            Pageable pageable
+    ) {
         User user = userRepository.findById(userId).orElseThrow();
 
-        if (user.getSelectedStores().isEmpty()) {
-            return Page.empty();
+        if (user.getSelectedStores().isEmpty() || user.getSelectedProducts().isEmpty()) {
+            return Page.empty(pageable);
         }
 
-        System.out.println(user.getSelectedStores() + " " + user.getSelectedProducts());
         Specification<Deal> spec =
-                DealSpecifications.hasStoresAndKeywords(user.getSelectedStores(), user.getSelectedProducts());
+                DealSpecifications.hasStores(user.getSelectedStores());
 
-        Page<Deal> result = dealRepository.findAll(spec, pageable);
+        List<Deal> deals = dealRepository.findAll(spec);
 
-        return result.map(deal -> toDto(deal, user));
+        List<String> keywords = user.getSelectedProducts().stream()
+                .sorted()
+                .toList();
+
+        List<GroupedDealDto> feed = new ArrayList<>();
+
+        for (String keyword : keywords) {
+            String lowered = keyword.toLowerCase();
+
+            Pattern pattern = Pattern.compile(
+                    "\\b" + Pattern.quote(lowered) + "\\b",
+                    Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+            );
+
+            List<Deal> matched = deals.stream()
+                    .filter(d ->
+                            d.getName() != null &&
+                                    pattern.matcher(d.getName()).find()
+                    )
+                    .sorted(Comparator.comparing(
+                            Deal::getPriceValue,
+                            Comparator.nullsLast(Double::compareTo)
+                    ))
+                    .toList();
+
+
+            if (matched.isEmpty()) {
+                continue;
+            }
+
+            Double cheapestPrice = matched.stream()
+                    .map(Deal::getPriceValue)
+                    .filter(Objects::nonNull)
+                    .min(Double::compareTo)
+                    .orElse(null);
+
+            boolean first = true;
+            for (Deal deal : matched) {
+                boolean isCheapest =
+                        cheapestPrice != null &&
+                                deal.getPriceValue() != null &&
+                                deal.getPriceValue().compareTo(cheapestPrice) == 0;
+
+                feed.add(new GroupedDealDto(
+                        keyword,
+                        toDto(deal, user),
+                        first,
+                        isCheapest
+                ));
+                first = false;
+            }
+        }
+
+        return toPage(feed, pageable);
+    }
+
+
+    public static <T> Page<T> toPage(List<T> list, Pageable pageable) {
+        int start = (int) pageable.getOffset();
+
+        if (start >= list.size()) {
+            return Page.empty(pageable);
+        }
+
+        int end = Math.min(start + pageable.getPageSize(), list.size());
+
+        return new PageImpl<>(
+                list.subList(start, end),
+                pageable,
+                list.size()
+        );
     }
 
     private DealDto toDto(Deal deal) {
@@ -60,6 +129,7 @@ public class DealService {
                 deal.getUnit(),
                 deal.getDiscountPercentage(),
                 deal.getPromoNotes(),
+                deal.getValidUntil(),
                 hasNotification
         );
     }
@@ -105,6 +175,37 @@ public class DealService {
             "store",
             "name"
     );
+
+    public StoreRecommendationDto getRecommendedStore(Integer userId) {
+        User user = userRepository.findById(userId).orElseThrow();
+
+        if (user.getSelectedStores().isEmpty()) {
+            return null;
+        }
+
+        Specification<Deal> spec = DealSpecifications.hasStoresAndKeywords(
+                user.getSelectedStores(),
+                user.getSelectedProducts()
+        );
+
+        List<Deal> allDeals = dealRepository.findAll(spec);
+
+        Map<String, Long> storeCounts = allDeals.stream()
+                .collect(Collectors.groupingBy(Deal::getStore, Collectors.counting()));
+
+        Optional<Map.Entry<String, Long>> topStore = storeCounts.entrySet().stream()
+                .max(Map.Entry.comparingByValue());
+
+        if (topStore.isEmpty()) {
+            return null;
+        }
+
+        System.out.println("Liczba dealów dla netto: " + storeCounts.get("Netto"));
+        return new StoreRecommendationDto(
+                topStore.get().getKey(),
+                topStore.get().getValue().intValue()
+        );
+    }
 
     private Pageable sanitize(Pageable pageable) {
         Sort sort = pageable.getSort().stream()

@@ -13,4 +13,5 @@ public interface DealRepository extends JpaRepository<Deal, Integer> {
     Page<Deal> findByStoreIn(List<String> stores, Pageable pageable);
 
     Page<Deal> findAll(Specification<Deal> spec, Pageable pageable);
+    List<Deal> findAll(Specification<Deal> spec);
 }

@@ -23,14 +23,14 @@ public class DealController {
     private DealService dealService;
 
     @GetMapping("/mine")
-    public Page<DealDto> getMyDeals(
+    public Page<GroupedDealDto> getMyDeals(
             @AuthenticationPrincipal User user,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
 
-        return dealService.getDealsByUserStoresAndDeals(user.getId(), pageable);
+        return dealService.getDealsFeed(user.getId(), pageable);
     }
 
     @GetMapping("/all")
@@ -61,5 +61,12 @@ public class DealController {
     @GetMapping("/products-suggestions")
     public List<String> getProductSuggestions() {
         return ProductSuggestions.POPULAR_PRODUCTS;
+    }
+
+    @GetMapping("/recommended-store")
+    public StoreRecommendationDto getRecommendedStore(
+            @AuthenticationPrincipal User user
+    ) {
+        return dealService.getRecommendedStore(user.getId());
     }
 }

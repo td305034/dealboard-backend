@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:16
+    image: postgis/postgis:16-3.4
     container_name: postgres
     environment:
       POSTGRES_USER: ${DB_USER}
@@ -9,4 +9,21 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - E:/PostgreSQL/data:/var/lib/postgresql/data
+
+  osm-import:
+    image: iboates/osm2pgsql
+    volumes:
+      - C:\Users\elekt\Downloads:/data
+    command: >
+      -d DEALBOARD_DB
+      -H db
+      -U ${DB_USER}
+      -W
+      --output-pgsql-schema=osm
+      /data/poland-260102.osm.pbf
+    depends_on:
+      - db
+    environment:
+      PGPASSWORD: ${DB_PASSWORD}
+

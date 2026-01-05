@@ -30,6 +30,11 @@ public class DealSpecifications {
         };
     }
 
+    public static Specification<Deal> hasStores(Set<String> stores) {
+        return (root, query, cb) ->
+                root.get("store").in(stores);
+    }
+
     public static Specification<Deal> nameContains(String name) {
         return (root, query, cb) -> {
             if (name == null || name.isBlank()) {

@@ -1,4 +1,6 @@
 package com.td.dealboard.deal;
 
-public class StoreRecommendationDto {
-}
+public record StoreRecommendationDto(
+    String name,
+    int dealCount
+){}

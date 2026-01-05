@@ -1,5 +1,7 @@
 package com.td.dealboard.deal;
 
+import java.time.LocalDate;
+
 public record DealDto(
         Long id,
         String name,
@@ -11,5 +13,6 @@ public record DealDto(
         String unit,
         Integer discount_percent,
         String promo_notes,
+        LocalDate valid_until,
         Boolean hasNotification
 ) {}
