@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 1
+      author: Tomasz Drzewinski
+      changes:
+        - dropIndex:
+            indexName: ux_deals_unique_price
+            tableName: deals
+
+
+  - changeSet:
+      id: 2
+      author: Tomasz Drzewinski
+      changes:
+        - createIndex:
+            indexName: ux_deals_unique_price
+            tableName: deals
+            unique: true
+            columns:
+              - column:
+                  name: name
+              - column:
+                  name: store_id
+              - column:
+                  computed: true
+                  name: COALESCE((price_value)::text, (price_alt)::text)

@@ -1,12 +1,16 @@
 package com.td.dealboard.deal;
 
+import com.td.dealboard.store.Store;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
+import com.td.dealboard.store.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -19,6 +23,7 @@ import java.util.stream.Collectors;
 public class DealService {
     private final DealRepository dealRepository;
     private final UserRepository userRepository;
+    private final StoreRepository storeRepository;
     private final Map<String, String> categoriesMap;
 
     public Page<GroupedDealDto> getDealsFeed(
@@ -31,8 +36,16 @@ public class DealService {
             return Page.empty(pageable);
         }
 
+        List<Store> stores = storeRepository.findAllByNameIn(
+                user.getSelectedStores()
+        );
+
+        if (stores.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
         Specification<Deal> spec =
-                DealSpecifications.hasStores(user.getSelectedStores());
+                DealSpecifications.hasStores(stores);
 
         List<Deal> deals = dealRepository.findAll(spec);
 
@@ -60,7 +73,6 @@ public class DealService {
                             Comparator.nullsLast(Double::compareTo)
                     ))
                     .toList();
-
 
             if (matched.isEmpty()) {
                 continue;
@@ -121,7 +133,7 @@ public class DealService {
         return new DealDto(
                 deal.getId(),
                 deal.getName(),
-                deal.getStore(),
+                deal.getStore().getName(),
                 deal.getCategory(),
                 deal.getCategoryCode(),
                 deal.getPriceValue(),
@@ -134,7 +146,7 @@ public class DealService {
         );
     }
 
-    public void saveAllFromDto(List<DealDto> dtos, String store, LocalDate validSince, LocalDate validUntil) {
+    public void saveAllFromDto(List<DealDto> dtos, Store store, LocalDate validSince, LocalDate validUntil) {
         List<Deal> entities = dtos.stream()
                 .map(dto -> Deal.builder()
                         .name(dto.name())
@@ -155,7 +167,27 @@ public class DealService {
         dealRepository.saveAll(entities);
     }
 
-    public Page<DealDto> getAllDealsWithFilters(String name, String store, String category, Double minPrice, Double maxPrice, Pageable pageable) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void saveFromDto(DealDto dto, Store store, LocalDate validSince, LocalDate validUntil) {
+        Deal entity = Deal.builder()
+                        .name(dto.name())
+                        .store(store)
+                        .category(categoriesMap.getOrDefault(dto.category_code(), ""))
+                        .categoryCode(dto.category_code())
+                        .priceValue(dto.price_value())
+                        .priceAlt(dto.price_alt())
+                        .unit(dto.unit())
+                        .discountPercentage(dto.discount_percent())
+                        .promoNotes(dto.promo_notes())
+                        .validSince(validSince)
+                        .validUntil(validUntil)
+                        .build();
+
+        dealRepository.save(entity);
+    }
+
+    public Page<DealDto> getAllDealsWithFilters(String name, String storeName, String category, Double minPrice, Double maxPrice, Pageable pageable) {
+        Store store = storeRepository.findByName(storeName).orElse(null);
         Specification<Deal> spec = Specification.allOf(
                  DealSpecifications.nameContains(name)
                 ,DealSpecifications.hasStore(store)
@@ -179,33 +211,58 @@ public class DealService {
     public StoreRecommendationDto getRecommendedStore(Integer userId) {
         User user = userRepository.findById(userId).orElseThrow();
 
-        if (user.getSelectedStores().isEmpty()) {
+        if (user.getSelectedStores().isEmpty() || user.getSelectedProducts().isEmpty()) {
             return null;
         }
 
-        Specification<Deal> spec = DealSpecifications.hasStoresAndKeywords(
-                user.getSelectedStores(),
-                user.getSelectedProducts()
-        );
-
-        List<Deal> allDeals = dealRepository.findAll(spec);
-
-        Map<String, Long> storeCounts = allDeals.stream()
-                .collect(Collectors.groupingBy(Deal::getStore, Collectors.counting()));
-
-        Optional<Map.Entry<String, Long>> topStore = storeCounts.entrySet().stream()
-                .max(Map.Entry.comparingByValue());
-
-        if (topStore.isEmpty()) {
+        List<Store> stores = storeRepository.findAllByNameIn(user.getSelectedStores());
+        if (stores.isEmpty()) {
             return null;
         }
 
-        System.out.println("Liczba dealów dla netto: " + storeCounts.get("Netto"));
+        Specification<Deal> spec = DealSpecifications.hasStores(stores);
+        List<Deal> deals = dealRepository.findAll(spec);
+
+        Map<Store, Long> storeCounts = new HashMap<>();
+
+        for (String keyword : user.getSelectedProducts()) {
+            String lowered = keyword.toLowerCase();
+
+            Pattern pattern = Pattern.compile(
+                    "\\b" + Pattern.quote(lowered) + "\\b",
+                    Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE
+            );
+
+            List<Deal> matched = deals.stream()
+                    .filter(d ->
+                            d.getName() != null &&
+                                    pattern.matcher(d.getName()).find()
+                    )
+                    .toList();
+
+            if (matched.isEmpty()) {
+                continue;
+            }
+
+            for (Deal deal : matched) {
+                storeCounts.merge(deal.getStore(), 1L, Long::sum);
+            }
+        }
+
+        if (storeCounts.isEmpty()) {
+            return null;
+        }
+
+        Map.Entry<Store, Long> topStore = storeCounts.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .orElseThrow();
+
         return new StoreRecommendationDto(
-                topStore.get().getKey(),
-                topStore.get().getValue().intValue()
+                topStore.getKey().getName(),
+                topStore.getValue().intValue()
         );
     }
+
 
     private Pageable sanitize(Pageable pageable) {
         Sort sort = pageable.getSort().stream()
@@ -224,4 +281,5 @@ public class DealService {
                 sort
         );
     }
+
 }

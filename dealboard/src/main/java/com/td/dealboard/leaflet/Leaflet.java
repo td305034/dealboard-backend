@@ -19,8 +19,10 @@ public class Leaflet {
 
     private String store;
 
+    @Column(unique = true)
     private String url;
 
+    @Column(unique = true)
     private String imageUrl;
 
     private String validUntil;

@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
 
@@ -43,7 +44,13 @@ public class TestController {
 
     @GetMapping("/get-leaflets")
     public void getLeaflets() {
-        List<Store> stores = storeRepository.findAll();
+        List<Store> stores = new ArrayList<>();
+        stores.add(storeRepository.findByName("Lidl").orElse(null));
+        stores.add(storeRepository.findByName("Biedronka").orElse(null));
+        stores.add(storeRepository.findByName("Kaufland").orElse(null));
+        stores.add(storeRepository.findByName("Carrefour").orElse(null));
+        stores.add(storeRepository.findByName("Netto").orElse(null));
+        //List<Store> stores = storeRepository.findAll();
         promotionService.runForStores(stores);
     }
 }

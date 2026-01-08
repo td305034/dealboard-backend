@@ -1,5 +1,6 @@
 package com.td.dealboard.deal;
 
+import com.td.dealboard.store.Store;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,8 +20,9 @@ public class Deal {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false)
-    private String store;
+    @ManyToOne
+    @JoinColumn(name = "store_id", nullable = false)
+    private Store store;
 
     @Column(nullable = false)
     private String category;
@@ -30,9 +32,14 @@ public class Deal {
 
     private Double priceValue;
     private String priceAlt;
+
+    @Column(nullable = false)
     private String unit;
+
     private Integer discountPercentage;
     private String promoNotes;
     private LocalDate validSince;
+
+    @Column(nullable = false)
     private LocalDate validUntil;
 }

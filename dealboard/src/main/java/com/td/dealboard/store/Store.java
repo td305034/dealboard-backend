@@ -6,12 +6,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 
+import java.util.Locale;
+
 @Data
 @Builder
 @AllArgsConstructor
 @RequiredArgsConstructor
 @Entity
-@Table(name="stores")
+@Table(name = "stores", uniqueConstraints = @UniqueConstraint(name = "uq_stores_name_url", columnNames = {"name", "url"}))
 public class Store {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -20,5 +22,6 @@ public class Store {
     @Column(nullable = false)
     private String name;
 
+    @Column(nullable = false)
     private String url;
 }

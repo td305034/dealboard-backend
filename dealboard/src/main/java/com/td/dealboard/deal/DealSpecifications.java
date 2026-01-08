@@ -1,19 +1,21 @@
 package com.td.dealboard.deal;
 
+import com.td.dealboard.store.Store;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
+import java.util.List;
 import java.util.Set;
 
 public class DealSpecifications {
 
     public static Specification<Deal> hasStoresAndKeywords(
-            Set<String> stores,
+            List<Store> stores,
             Set<String> keywords
     ) {
         return (root, query, cb) -> {
 
-            Predicate storePredicate = root.get("store").in(stores);
+            Predicate storePredicate = root.get("store").get("name").in(stores);
 
             Predicate keywordPredicate = cb.or(
                     keywords.stream()
@@ -30,7 +32,7 @@ public class DealSpecifications {
         };
     }
 
-    public static Specification<Deal> hasStores(Set<String> stores) {
+    public static Specification<Deal> hasStores(List<Store> stores) {
         return (root, query, cb) ->
                 root.get("store").in(stores);
     }
@@ -47,7 +49,7 @@ public class DealSpecifications {
         };
     }
 
-    public static Specification<Deal> hasStore(String store) {
+    public static Specification<Deal> hasStore(Store store) {
         return (root, query, cb) ->
                 store == null ? null : cb.equal(root.get("store"), store);
     }

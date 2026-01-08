@@ -28,7 +28,7 @@ public class StoreController {
     @GetMapping
     public List<StoreWithDealCountDto> getAllStores() {
         // Group by store and count deals
-        Map<String, Long> storeCounts = dealRepository.findAll()
+        Map<Store, Long> storeCounts = dealRepository.findAll()
                 .stream()
                 .filter(deal -> deal.getStore() != null)
                 .collect(Collectors.groupingBy(
@@ -38,7 +38,7 @@ public class StoreController {
 
         return storeCounts.entrySet()
                 .stream()
-                .map(entry -> new StoreWithDealCountDto(entry.getKey(), entry.getValue()))
+                .map(entry -> new StoreWithDealCountDto(entry.getKey().getName(), entry.getValue()))
                 .sorted((a, b) -> Long.compare(b.getDealCount(), a.getDealCount()))
                 .collect(Collectors.toList());
     }
