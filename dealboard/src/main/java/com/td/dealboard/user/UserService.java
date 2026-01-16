@@ -67,4 +67,11 @@ public class UserService {
                 .orElseThrow(()->new ApiException("Uzytkownik nie istnieje", HttpStatus.NOT_FOUND));
         return updatableUser.getSelectedProducts();
     }
+
+    public void changeNotificationTime(String email, NotificationTime time) {
+        User updatableUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        updatableUser.setNotificationTime(time);
+        userRepository.save(updatableUser);
+    }
 }

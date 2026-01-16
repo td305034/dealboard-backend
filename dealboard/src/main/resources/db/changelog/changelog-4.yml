@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260112-add-notification-time-to-user
+      author: Tomasz Drzewinski
+      preConditions:
+        - onFail: MARK_RAN
+          not:
+            columnExists:
+              tableName: _users
+              columnName: notification_time
+      changes:
+        - addColumn:
+            tableName: _users
+            columns:
+              - column:
+                  name: notification_time
+                  type: varchar(50)
+                  defaultValue: 'MORNING'

@@ -10,25 +10,8 @@ from dotenv import load_dotenv
 from pathlib import Path
 import json
 
-# import tiktoken
-
-# enc = tiktoken.get_encoding("cl100k_base")
-
 sys.stdout.reconfigure(encoding='utf-8')
 load_dotenv()
-
-# def count_chat_tokens(messages, enc):
-#     total = 0
-#     for msg in messages:
-#         total += len(enc.encode(msg["role"]))
-#         if isinstance(msg["content"], list):
-#             for part in msg["content"]:
-#                 if part["type"] == "text":
-#                     total += len(enc.encode(part["text"]))
-#         else:
-#             total += len(enc.encode(msg["content"]))
-#     return total
-
 
 def normalize(s):
     if not s: return ""
@@ -105,6 +88,7 @@ prompt = f"""
         "unit": "string", // jednostka ilościowa bez waluty, np. "kg", "szt", "l", "opak"
         "discount_percent": "number|null",
         "promo_notes": "string|null",
+        "app_required": "boolean" // czy promocja wymaga aplikacji mobilnej (jeśli brak informacji to false)
     }}
 
     Lista dostępnych kodów kategorii produktów to:

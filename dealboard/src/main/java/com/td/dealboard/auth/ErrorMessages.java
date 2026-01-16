@@ -26,4 +26,7 @@ public class ErrorMessages {
     // General
     public static final String GENERAL_ERROR = "Wystąpił nieoczekiwany błąd";
     public static final String UNAUTHORIZED = "Brak autoryzacji";
+
+    //user role
+    public static final String ROLE_REQUIRED = "Rola użytkownika jest wymagana";
 }

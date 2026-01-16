@@ -1,6 +1,7 @@
 package com.td.dealboard.user;
 
 import com.td.dealboard.auth.AuthenticationService;
+import com.td.dealboard.auth.ErrorResponse;
 import com.td.dealboard.auth.JwtService;
 import com.td.dealboard.deal.DealRepository;
 import com.td.dealboard.deal.DealService;
@@ -69,10 +70,12 @@ public class UserController {
             @AuthenticationPrincipal User user,
             @RequestBody List<String> stores
     ) {
-        user.setSelectedStores(new HashSet<>(stores));
-        userRepository.save(user);
+        User updatableUser = userRepository.findByEmail(user.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        updatableUser.setSelectedStores(new HashSet<>(stores));
+        userRepository.save(updatableUser);
 
-        return ResponseEntity.ok(Map.of("success", true, "count", stores.size()));
+        return ResponseEntity.ok(Map.of("success", true, "count", updatableUser.getSelectedStores().size()));
     }
 
     @GetMapping("/selected-products")
@@ -140,13 +143,13 @@ public class UserController {
     @PostMapping("/toggle-notification")
     public ResponseEntity<?> addNotification(
             @AuthenticationPrincipal User user,
-            @RequestBody Map<String, String> body) {
+            @RequestBody ToggleNotificationRequest body) {
         if (user.getNotifications() == null) {
             user.setNotifications(new HashMap<>());
         }
         String email = user.getEmail();
-        String productName = body.get("productName");
-        Boolean active = Boolean.valueOf(body.get("active"));
+        String productName = body.getProductName();
+        Boolean active = Boolean.valueOf(body.getActive());
         if(productName == null || productName.isBlank()) {
             return ResponseEntity
                     .badRequest()
@@ -162,9 +165,34 @@ public class UserController {
     @PostMapping("/change-name")
     public ResponseEntity<?> changeName(
             @AuthenticationPrincipal User user,
-            @RequestBody Map<String, String> body) {
+            @RequestBody String name) {
         String email = user.getEmail();
-        String accessToken = userService.changeName(email, body.get("name"));
+        String accessToken = userService.changeName(email, name);
+        System.out.println(user.getName());
         return ResponseEntity.ok(Map.of("accessToken", accessToken));
+    }
+
+    @PutMapping("/notification-time")
+    public ResponseEntity<?> updateNotificationTime(
+            @AuthenticationPrincipal User user,
+            @RequestBody NotificationTimeDto dto
+    ) {
+        System.out.println(dto);
+        userService.changeNotificationTime(user.getEmail(), dto.time());
+        return ResponseEntity.ok(Map.of(
+                "message", "Notification time updated successfully",
+                "notificationTime", user.getNotificationTime()
+        ));
+    }
+
+    @GetMapping("/notification-time")
+    public ResponseEntity<?> getNotificationTime(@AuthenticationPrincipal User user) {
+        User updatableUser = userRepository.findByEmail(user.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return ResponseEntity.ok(Map.of(
+                "Current notification time",
+                user.getNotificationTime()
+        ));
     }
 }

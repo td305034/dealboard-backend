@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260112-recreate-validity-dates
+      author: Tomasz Drzewinski
+      preConditions:
+        - onFail: MARK_RAN
+          not:
+            columnExists:
+              tableName: leaflets
+              columnName: valid_since
+      changes:
+        - dropColumn:
+            tableName: leaflets
+            columnName: valid_until
+
+        - addColumn:
+            tableName: leaflets
+            columns:
+              - column:
+                  name: valid_since
+                  type: date
+              - column:
+                  name: valid_until
+                  type: date
+                  constraints:
+                    nullable: false

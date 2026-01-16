@@ -34,7 +34,7 @@ public class UserDataInitializer {
                 User user = new User();
                 user.setEmail(userEmail);
                 user.setPassword(passwordEncoder.encode("User123"));
-                user.setRole(Role.ADMIN);
+                user.setRole(Role.USER);
 
                 userRepository.save(user);
             }

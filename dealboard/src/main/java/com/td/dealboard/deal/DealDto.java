@@ -1,5 +1,7 @@
 package com.td.dealboard.deal;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -15,11 +17,12 @@ public record DealDto(
         Integer discount_percent,
         String promo_notes,
         LocalDate valid_until,
-        Boolean has_notification
+        Boolean has_notification,
+        Boolean app_required
 ) {
     public DealDto withDefaultUnitIfInvalid(List<String> blacklisted) {
         if (unit == null || blacklisted.stream().anyMatch(b -> unit.toLowerCase().contains(b))) {
-            return new DealDto(id, name, store, category, category_code, price_value, price_alt, "szt", discount_percent, promo_notes, valid_until, has_notification);
+            return new DealDto(id, name, store, category, category_code, price_value, price_alt, "szt", discount_percent, promo_notes, valid_until, has_notification, app_required);
         }
         return this;
     }

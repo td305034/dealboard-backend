@@ -5,6 +5,7 @@ import com.td.dealboard.auth.ErrorMessages;
 import com.td.dealboard.auth.ErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -90,4 +91,22 @@ public class GlobalExceptionHandler {
                 .status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(errorResponse);
     }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidJson(HttpMessageNotReadableException ex) {
+
+        ErrorResponse errorResponse = new ErrorResponse();
+        errorResponse.setStatus(HttpStatus.BAD_REQUEST.value());
+        errorResponse.setMessage("Invalid request body");
+
+        errorResponse.addFieldError(
+                "body",
+                "Request body contains invalid or unknown fields"
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(errorResponse);
+    }
+
 }

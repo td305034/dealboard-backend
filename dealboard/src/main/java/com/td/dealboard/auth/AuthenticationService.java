@@ -52,7 +52,6 @@ public class AuthenticationService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private Map<String, Boolean> validStates = new ConcurrentHashMap<>();
 
     public AuthenticationResponse register(RegisterRequest request){
         String email = request.getEmail().toLowerCase();
@@ -153,6 +152,8 @@ public class AuthenticationService {
         userInfoWithoutExp.put("picture", user.getPicture());
         userInfoWithoutExp.put("provider", user.getProvider());
         userInfoWithoutExp.put("onboardingCompleted", user.getOnboardingCompleted());
+        userInfoWithoutExp.put("role", user.getRole().name());
+        System.out.println(user.getRole().name());
         return userInfoWithoutExp;
     }
 

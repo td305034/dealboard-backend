@@ -252,12 +252,13 @@ public class AuthenticationController {
                     .body(Map.of("error", "User not found"));
         }
 
-        return ResponseEntity.ok(Map.of(
-                "valid", true,
-                "email", user.getEmail(),
-                "name", user.getName(),
-                "onboardingCompleted", user.getOnboardingCompleted() != null && user.getOnboardingCompleted()
-        ));
-    }
+        Map<String, Object> response = new HashMap<>();
+        response.put("valid", true);
+        response.put("email", user.getEmail());
+        response.put("name", user.getName() != null ? user.getName() : "");
+        response.put("role", user.getRole() != null ? user.getRole().name() : "USER");
+        response.put("onboardingCompleted", user.getOnboardingCompleted() != null && user.getOnboardingCompleted());
 
+        return ResponseEntity.ok(response);
+    }
 }

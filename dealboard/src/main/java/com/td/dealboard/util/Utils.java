@@ -15,10 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.text.Normalizer;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 
 public class Utils {
     public static boolean isCorrectJsonArray(String json) {
@@ -62,9 +59,9 @@ public class Utils {
                 int addedCount = 0;
 
                 for (Element img : imgElements) {
-                    String src = img.attr("data-src");
+                    String src = removeBucketParam(img.attr("data-src"));
                     if (src == null || src.isBlank()) {
-                        src = img.attr("src");
+                        src = removeBucketParam(img.attr("src"));
                     }
                     if (src != null && !src.isBlank() && uniqueImages.add(src)) {
                         result.add(src);
@@ -88,6 +85,19 @@ public class Utils {
 
         return result;
     }
+    public static String removeBucketParam(String url) {
+        if (url == null || !url.contains("&bucket=")) {
+            return url;
+        }
+
+        int index = url.lastIndexOf("&bucket=");
+        if (index == -1 || index + 8 >= url.length()) {
+            return url;
+        }
+
+        return url.substring(0, index);
+    }
+
     public static String normalizeStore(String storeName) {
         // Zamiana polskich znaków na podstawowe (ą -> a itd.)
         String normalized = Normalizer.normalize(storeName, Normalizer.Form.NFD)
@@ -101,5 +111,4 @@ public class Utils {
 
         return normalized;
     }
-    //-------------------------------PROMOTION API------------------------------
 }

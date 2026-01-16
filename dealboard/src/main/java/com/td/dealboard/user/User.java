@@ -79,6 +79,10 @@ public class User implements UserDetails {
     @Column(name = "notification_date")
     private Map<String, Date> notifications = new HashMap<>();
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "notification_time")
+    private NotificationTime notificationTime = NotificationTime.MORNING;
+
     private Boolean onboardingCompleted = false;
 
     @Override

@@ -20,7 +20,6 @@ public class ShopLocation {
 
     private String storeName;
 
-    // PostGIS geometry type
     @Column(columnDefinition = "geography(Point,4326)")
     private String locationGeom; // W formacie WKT: "POINT(lon lat)"
 }

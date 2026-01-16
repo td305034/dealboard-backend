@@ -125,9 +125,11 @@ public class DealService {
         return toDto(deal, null);
     }
     private DealDto toDto(Deal deal, User user) {
-        boolean hasNotification = false;
+        boolean hasNotification = true;
+        System.out.println("Powiadomienia usera: " + user.getNotifications());
+        System.out.println("Nazwa deala: " + deal.getName());
+        System.out.println("Czy zawiera: " + user.getNotifications().containsKey(deal.getName()));
         if (user != null) {
-            // Sprawdź czy user ma aktywne powiadomienie dla tego deala
             hasNotification = user.getNotifications().containsKey(deal.getName());
         }
         return new DealDto(
@@ -142,7 +144,8 @@ public class DealService {
                 deal.getDiscountPercentage(),
                 deal.getPromoNotes(),
                 deal.getValidUntil(),
-                hasNotification
+                hasNotification,
+                deal.getAppRequired()
         );
     }
 
@@ -160,6 +163,7 @@ public class DealService {
                         .promoNotes(dto.promo_notes())
                         .validSince(validSince)
                         .validUntil(validUntil)
+                        .appRequired(dto.app_required())
                         .build()
                 )
                 .toList();
