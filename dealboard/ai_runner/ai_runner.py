@@ -10,24 +10,22 @@ from dotenv import load_dotenv
 from pathlib import Path
 import json
 
-# import tiktoken
-
-# enc = tiktoken.get_encoding("cl100k_base")
-
 sys.stdout.reconfigure(encoding='utf-8')
 load_dotenv()
 
-# def count_chat_tokens(messages, enc):
-#     total = 0
-#     for msg in messages:
-#         total += len(enc.encode(msg["role"]))
-#         if isinstance(msg["content"], list):
-#             for part in msg["content"]:
-#                 if part["type"] == "text":
-#                     total += len(enc.encode(part["text"]))
-#         else:
-#             total += len(enc.encode(msg["content"]))
-#     return total
+#enc = tiktoken.get_encoding("cl100k_base")
+#
+#def count_chat_tokens(messages, enc):
+#    total = 0
+#    for msg in messages:
+#        total += len(enc.encode(msg["role"]))
+#        if isinstance(msg["content"], list):
+#            for part in msg["content"]:
+#                if part["type"] == "text":
+#                    total += len(enc.encode(part["text"]))
+#        else:
+#            total += len(enc.encode(msg["content"]))
+#    return total
 
 
 def normalize(s):
@@ -35,7 +33,7 @@ def normalize(s):
     s = unicodedata.normalize("NFKD", s)
     return "".join(ch for ch in s if not unicodedata.combining(ch)).strip().lower()
 
-def load_categories_from_local(path=Path("ai_runner/categories.csv").resolve()):
+def load_categories_from_local(path=Path("src/main/resources/categories.csv").resolve()):
     codes_labels = []
     with open(path, newline='', encoding='utf-8') as f:
         reader = csv.reader(f, delimiter=';')
@@ -54,12 +52,10 @@ def clean_json_list(string_data):
     string_data = string_data.strip()
     items = []
 
-    # jeśli mamy poprawną tablicę JSON, po prostu parsujemy
     if string_data.startswith("[") and string_data.endswith("]"):
         try:
             items = json.loads(string_data)
         except json.JSONDecodeError:
-            # wpadliśmy w sytuację „luźnych obiektów JSON”
             import re
             pattern = re.compile(r'\{.*?\}', re.S)
             for match in pattern.finditer(string_data):
@@ -69,7 +65,6 @@ def clean_json_list(string_data):
                 except json.JSONDecodeError:
                     continue
     else:
-        # same obiekty JSON jeden po drugim
         import re
         pattern = re.compile(r'\{.*?\}', re.S)
         for match in pattern.finditer(string_data):
@@ -79,7 +74,6 @@ def clean_json_list(string_data):
             except json.JSONDecodeError:
                 continue
 
-    # filtrujemy tylko pełne obiekty
     cleaned = [
         item for item in items
         if item.get("name") and item.get("category_code") and item.get("category_code") != ""
@@ -105,6 +99,7 @@ prompt = f"""
         "unit": "string", // jednostka ilościowa bez waluty, np. "kg", "szt", "l", "opak"
         "discount_percent": "number|null",
         "promo_notes": "string|null",
+        "app_required": "boolean" // czy promocja wymaga aplikacji mobilnej (jeśli brak informacji to false)
     }}
 
     Lista dostępnych kodów kategorii produktów to:
