@@ -2,6 +2,7 @@ package com.td.dealboard.notification;
 
 import com.td.dealboard.deal.Deal;
 import com.td.dealboard.deal.DealRepository;
+import com.td.dealboard.user.enums.NotificationTime;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,35 +23,26 @@ public class NotificationService {
     private final DealRepository dealRepo;
     private final ExpoPushNotificationService pushService;
 
-
-    public void addTrackedProduct(User user, String productKeyword) {
-        // Dodaj do trackedProducts
-        user.getSelectedProducts().add(productKeyword);
-        // Inicjalizuj w notifications (null = nigdy nie wysłano)
-        user.getNotifications().putIfAbsent(productKeyword, null);
-        userRepo.save(user);
+    @Scheduled(cron = "0 0 10 * * *")
+    public void checkDealsAndNotifyMorning() {
+        checkDealsAndNotify(NotificationTime.MORNING);
     }
 
-    public void removeTrackedProduct(User user, String productKeyword) {
-        user.getSelectedProducts().remove(productKeyword);
-        user.getNotifications().remove(productKeyword);
-        userRepo.save(user);
+    @Scheduled(cron = "0 0 14 * * *")
+    public void checkDealsAndNotifyAfternoon() {
+        checkDealsAndNotify(NotificationTime.AFTERNOON);
     }
 
-    public Set<String> getTrackedProducts(User user) {
-        return user.getSelectedProducts();
+    @Scheduled(cron = "0 0 20 * * *")
+    public void checkDealsAndNotifyEvening() {
+        checkDealsAndNotify(NotificationTime.EVENING);
     }
 
-    public void registerPushToken(User user, String pushToken) {
-        user.getPushTokens().add(pushToken);
-        userRepo.save(user);
-    }
-
-    @Scheduled(cron = "0 56 11 * * *")
-    public void checkDealsAndNotify() {
+    private void checkDealsAndNotify(NotificationTime timeSlot) {
         List<User> users = userRepo.findAll().stream()
                 .filter(u -> !u.getPushTokens().isEmpty())
                 .filter(u -> !u.getNotifications().isEmpty())
+                .filter(u -> u.getNotificationTime() == timeSlot)
                 .collect(Collectors.toList());
 
         for (User user : users) {
