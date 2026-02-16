@@ -1,17 +1,14 @@
 package com.td.dealboard.user;
 
-import com.td.dealboard.auth.AuthenticationService;
-import com.td.dealboard.auth.JwtService;
-import com.td.dealboard.deal.DealRepository;
-import com.td.dealboard.deal.DealService;
+import com.td.dealboard.user.dto.NotificationTimeDto;
+import com.td.dealboard.user.dto.request.PushTokenRequest;
+import com.td.dealboard.user.dto.request.ToggleNotificationRequest;
+import com.td.dealboard.user.dto.TrackedProductsDto;
+import com.td.dealboard.user.dto.TrackedStoresDto;
+import com.td.dealboard.user.dto.response.AccessTokenResponse;
+import com.td.dealboard.user.enums.NotificationTime;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.apache.coyote.Response;
-import org.checkerframework.checker.units.qual.A;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -89,11 +86,27 @@ public class UserController {
     }
 
     @PostMapping("/change-name")
-    public ResponseEntity<?> changeName(
-            @AuthenticationPrincipal User user,
-            @RequestBody Map<String, String> body) {
-        String email = user.getEmail();
-        String accessToken = userService.changeName(email, body.get("name"));
-        return ResponseEntity.ok(Map.of("accessToken", accessToken));
+    public ResponseEntity<AccessTokenResponse> changeName(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody String name) {
+        String accessToken = userService.changeName(userDetails.getUsername(), name);
+        return ResponseEntity.ok(new AccessTokenResponse(accessToken));
+    }
+
+    @PutMapping("/notification-time")
+    public ResponseEntity<Void> updateNotificationTime(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody NotificationTimeDto req
+    ) {
+        userService.changeNotificationTime(userDetails.getUsername(), req);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/notification-time")
+    public ResponseEntity<NotificationTimeDto> getNotificationTime(@AuthenticationPrincipal UserDetails userDetails) {
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        NotificationTime time = user.getNotificationTime();
+        return ResponseEntity.ok(new NotificationTimeDto(time));
     }
 }

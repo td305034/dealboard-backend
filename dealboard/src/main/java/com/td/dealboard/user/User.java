@@ -1,5 +1,8 @@
 package com.td.dealboard.user;
 
+import com.td.dealboard.user.enums.AuthProvider;
+import com.td.dealboard.user.enums.NotificationTime;
+import com.td.dealboard.user.enums.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -78,6 +81,10 @@ public class User implements UserDetails {
     @MapKeyColumn(name = "product_keyword")
     @Column(name = "notification_date")
     private Map<String, Date> notifications = new HashMap<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "notification_time")
+    private NotificationTime notificationTime = NotificationTime.MORNING;
 
     private Boolean onboardingCompleted = false;
 
