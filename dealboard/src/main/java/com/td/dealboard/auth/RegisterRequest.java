@@ -1,24 +1,19 @@
 package com.td.dealboard.auth;
 
+import com.td.dealboard.validation.ErrorMessages;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 
-@Data
 @Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class RegisterRequest {
+public record RegisterRequest(
 
     @NotBlank(message = ErrorMessages.NAME_REQUIRED)
     @Size(min = 2, message = ErrorMessages.NAME_TOO_SHORT)
-    private String name;
+    String name,
 
     @NotBlank(message = ErrorMessages.EMAIL_REQUIRED)
     @Email(message = ErrorMessages.EMAIL_INVALID)
-    private String email;
+    String email,
 
     @NotBlank(message = ErrorMessages.PASSWORD_REQUIRED)
     @Pattern(
@@ -34,5 +29,5 @@ public class RegisterRequest {
             message = ErrorMessages.PASSWORD_SPECIAL
     )
     @Size(min = 8, message = ErrorMessages.PASSWORD_TOO_SHORT)
-    private String password;
-}
+    String password
+){}

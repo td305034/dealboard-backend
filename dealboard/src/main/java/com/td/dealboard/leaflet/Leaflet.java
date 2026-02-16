@@ -17,7 +17,8 @@ public class Leaflet {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String store;
+    @Column(name = "store_name")
+    private String storeName;
 
     @Column(unique = true)
     private String url;
@@ -25,7 +26,10 @@ public class Leaflet {
     @Column(unique = true)
     private String imageUrl;
 
-    private String validUntil;
+    private LocalDate validSince;
+
+    @Column(nullable = false)
+    private LocalDate validUntil;
 
     @ElementCollection
     @CollectionTable(name = "leaflet_pages", joinColumns = @JoinColumn(name = "leaflet_id"))
@@ -35,10 +39,11 @@ public class Leaflet {
     private LocalDate downloadDate;
 
     public Leaflet(LeafletDto dto) {
-        this.store = dto.storeName();
+        this.storeName = dto.storeName();
         this.url = dto.leafletLink();
         this.imageUrl = dto.imageUrl();
         this.validUntil = dto.validUntil();
+        this.validSince = dto.validSince();
         this.pages = dto.leafletsURL() == null ? List.of() : dto.leafletsURL();
         this.downloadDate = dto.downloadDate() != null ? dto.downloadDate() : null;
     }

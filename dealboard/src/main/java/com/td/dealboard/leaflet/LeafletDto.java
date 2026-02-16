@@ -9,7 +9,8 @@ public record LeafletDto(
         @JsonProperty("shopName") String storeName,
         @JsonProperty("leafletLink") String leafletLink,
         @JsonProperty("imageUrl") String imageUrl,
-        @JsonProperty("validUntil") String validUntil,
+        @JsonProperty("validSince") LocalDate validSince,
+        @JsonProperty("validUntil") LocalDate validUntil,
         @JsonProperty("leafletsURL") List<String> leafletsURL,
         @JsonProperty("downloadDate") LocalDate downloadDate
 ) {}

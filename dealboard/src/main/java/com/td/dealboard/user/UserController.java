@@ -24,139 +24,68 @@ import java.util.*;
 @RequiredArgsConstructor
 public class UserController {
     private final UserRepository userRepository;
-    private final JwtService jwtService;
-    private final AuthenticationService authenticationService;
     private final UserService userService;
 
     @PostMapping("/selected-products")
-    public ResponseEntity<?> updateTrackedProducts(
-            @AuthenticationPrincipal User user,
-            @RequestBody(required = false) Set<String> products
+    public ResponseEntity<Void> updateTrackedProducts(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid  @RequestBody TrackedProductsDto req
     ) {
-        if (products.isEmpty()) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of(
-                            "error", "EMPTY_PRODUCTS",
-                            "message", "Products list cannot be empty"
-                    ));
-        }
-        boolean hasInvalid = products.stream()
-                .anyMatch(p -> p == null || p.isBlank());
-
-        if (hasInvalid) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of(
-                            "error", "INVALID_PRODUCT",
-                            "message", "Product names cannot be empty"
-                    ));
-        }
-
-        user.setSelectedProducts(products);
-        userRepository.save(user);
-
-        return ResponseEntity.ok(
-                Map.of(
-                        "success", true,
-                        "count", products.size()
-                )
-        );
+        userService.updateTrackedProducts(userDetails.getUsername(), req);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/selected-stores")
-    public ResponseEntity<?> saveSelectedStores(
-            @AuthenticationPrincipal User user,
-            @RequestBody List<String> stores
+    public ResponseEntity<Void> saveSelectedStores(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody TrackedStoresDto req
     ) {
-        user.setSelectedStores(new HashSet<>(stores));
-        userRepository.save(user);
-
-        return ResponseEntity.ok(Map.of("success", true, "count", stores.size()));
+        userService.updateTrackedStores(userDetails.getUsername(), req);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/selected-products")
-    public ResponseEntity<?> getSelectedProducts(@AuthenticationPrincipal User user) {
-        Set<String> products = userService.getSelectedProducts(user.getEmail());
-
-        return ResponseEntity.ok(
-                Map.of(
-                        "success", true,
-                        "count", products.size(),
-                        "products", products
-                )
-        );
+    public ResponseEntity<TrackedProductsDto> getSelectedProducts(@AuthenticationPrincipal UserDetails userDetails) {
+        Set<String> products = userService.getSelectedProducts(userDetails.getUsername());
+        return ResponseEntity.ok(new TrackedProductsDto(products));
     }
 
     @GetMapping("/selected-stores")
-    public ResponseEntity<?> getSelectedStores(@AuthenticationPrincipal User user) {
-        Set<String> stores = userService.getSelectedStores(user.getEmail());
-        return ResponseEntity.ok(
-                Map.of(
-                        "success", true,
-                        "count", stores.size(),
-                        "stores", stores
-                )
-        );
+    public ResponseEntity<TrackedStoresDto> getSelectedStores(@AuthenticationPrincipal UserDetails userDetails) {
+        Set<String> stores = userService.getSelectedStores(userDetails.getUsername());
+        return ResponseEntity.ok(new TrackedStoresDto(stores));
     }
 
     @PostMapping("/complete-onboarding")
-    public ResponseEntity<?> completeOnboarding(
-            @AuthenticationPrincipal User user
+    public ResponseEntity<AccessTokenResponse> completeOnboarding(
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
-        user.setOnboardingCompleted(true);
-        userRepository.save(user);
-
-        Map<String, Object> userInfoWithoutExp = authenticationService.createUserInfoWithoutExp(user);
-
-        String accessToken = jwtService.generateToken(userInfoWithoutExp, user);
-        return ResponseEntity.ok(Map.of("accessToken", accessToken));
+        String jwtToken = userService.completeOnboarding(userDetails.getUsername());
+        return ResponseEntity.ok(new AccessTokenResponse(jwtToken));
     }
 
     @PostMapping("/register-push-token")
-    public ResponseEntity<?> registerPushToken(
-            @AuthenticationPrincipal User user,
-            @RequestBody Map<String, String> body) {
-        String token = body.get("token");
-        if (token == null || token.isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-        userService.addPushToken(user.getEmail(), token);
+    public ResponseEntity<Void> registerPushToken(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody PushTokenRequest req) {
+        userService.addPushToken(userDetails.getUsername(), req);
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/unregister-push-token")
-    public ResponseEntity<?> unregisterPushToken(
-            @AuthenticationPrincipal User user,
-            @RequestBody Map<String, String> body) {
-        String token = body.get("token");
-        if (token == null || token.isBlank()) {
-            return ResponseEntity.badRequest().build();
-        }
-        userService.removePushToken(user.getEmail(), token);
+    public ResponseEntity<Void> unregisterPushToken(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody PushTokenRequest req) {
+        userService.removePushToken(userDetails.getUsername(), req);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/toggle-notification")
-    public ResponseEntity<?> addNotification(
-            @AuthenticationPrincipal User user,
-            @RequestBody Map<String, String> body) {
-        if (user.getNotifications() == null) {
-            user.setNotifications(new HashMap<>());
-        }
-        String email = user.getEmail();
-        String productName = body.get("productName");
-        Boolean active = Boolean.valueOf(body.get("active"));
-        if(productName == null || productName.isBlank()) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of(
-                            "error", "INVALID_PRODUCT",
-                            "message", "Product name cannot be empty"
-                    ));
-        }
-
-        return ResponseEntity.ok(userService.toggleNotification(email, productName, active));
+    public ResponseEntity<Void> addNotification(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody ToggleNotificationRequest req) {
+        userService.toggleNotification(userDetails.getUsername(), req);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/change-name")

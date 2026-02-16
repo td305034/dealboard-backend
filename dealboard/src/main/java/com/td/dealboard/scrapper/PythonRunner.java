@@ -1,10 +1,7 @@
 package com.td.dealboard.scrapper;
 
-import com.td.dealboard.leaflet.Leaflet;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -20,7 +17,7 @@ public class PythonRunner {
 
         ProcessBuilder pb = new ProcessBuilder(command);
 
-        pb.redirectErrorStream(false);  // łączy stderr ze stdout
+        pb.redirectErrorStream(false);
 
         Process process = pb.start();
 

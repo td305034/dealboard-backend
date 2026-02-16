@@ -64,7 +64,7 @@ public class NotificationService {
         }
     }
 
-    private void processUserNotifications(User user) {
+    public void processUserNotifications(User user) {
         Set<String> notificationProducts = user.getNotifications().keySet();
         Map<String, Date> notificationHistory = user.getNotifications();
         List<MatchedDeal> matchedDeals = new ArrayList<>();
@@ -75,11 +75,10 @@ public class NotificationService {
         for (String productKeyword : notificationProducts) {
             Date lastNotificationDate = notificationHistory.get(productKeyword);
 
-//            //if (lastNotificationDate != null && lastNotificationDate.after(oneDayAgo)) {
-//                continue;
-//            }
+            if (lastNotificationDate != null && lastNotificationDate.after(oneDayAgo)) {
+                continue;
+            }
 
-            // Normalizacja i wyszukiwanie
             String normalizedKeyword = normalizeProductName(productKeyword);
 
             List<Deal> deals = dealRepo.findAll().stream()
@@ -100,7 +99,6 @@ public class NotificationService {
             return;
         }
 
-        System.out.println("Sending notification for user: " + user);
         sendSmartNotifications(user, matchedDeals);
 
         for (MatchedDeal matched : matchedDeals) {

@@ -27,7 +27,7 @@ public class User implements UserDetails {
     private Integer id;
 
     @Column(unique = true)
-    private String sub; //google id
+    private String sub;
 
     private String refreshToken;
     private Date refreshTokenExpiry;

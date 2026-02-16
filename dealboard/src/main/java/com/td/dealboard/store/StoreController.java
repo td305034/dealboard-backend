@@ -1,15 +1,11 @@
 package com.td.dealboard.store;
 
-import com.td.dealboard.scrapper.PromotionService;
+import com.td.dealboard.store.dto.StoreWithDealCountDto;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -20,14 +16,10 @@ import com.td.dealboard.deal.DealRepository;
 @RequestMapping("/api/stores")
 @RequiredArgsConstructor
 public class StoreController {
-
-    private final StoreRepository storeRepository;
     private final DealRepository dealRepository;
-    private final PromotionService promotionService;
 
     @GetMapping
     public List<StoreWithDealCountDto> getAllStores() {
-        // Group by store and count deals
         Map<Store, Long> storeCounts = dealRepository.findAll()
                 .stream()
                 .filter(deal -> deal.getStore() != null)

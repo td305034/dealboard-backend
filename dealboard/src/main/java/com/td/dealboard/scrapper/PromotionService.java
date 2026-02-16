@@ -1,10 +1,11 @@
 package com.td.dealboard.scrapper;
-// klasy gazetki
+
 import com.td.dealboard.leaflet.Leaflet;
 import com.td.dealboard.leaflet.LeafletDto;
 import com.td.dealboard.leaflet.LeafletRepository;
 import com.td.dealboard.store.Store;
-import com.td.dealboard.store.StoreDto;
+import com.td.dealboard.store.dto.StoreDto;
+import com.td.dealboard.store.StoreRepository;
 import com.td.dealboard.util.Utils;
 import lombok.RequiredArgsConstructor;
 import okhttp3.OkHttpClient;
@@ -17,238 +18,197 @@ import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-/*
- Trzymamy logikę biznesową. Zwracamy listę ulotek.
- Service - czyli klasa która jest serwisem =  miejsce z logiką biznesową aplikacji 
- logika biznesowa =  zasady, reguły, procesy odwzorowujące prawdziwe działania i potrzeby firmy 
- zasady, reguły (kiedy klient może otrzymać zniżkę itp)
- procesy operacyjne (przetwarzanie płayności, walidacja danych generowanie raportów)
- powiązania między komponentami 
- nie obsługują interfejsu użytkownika, nie zapisują danych bezpośrednio do bazy - bardziej przetwarzanie i łączenie informacji
-*/
 @Service
 @RequiredArgsConstructor
 public class PromotionService {
+
     private static final Logger log = LoggerFactory.getLogger(PromotionService.class);
 
-    private final LeafletRepository leafletRepo;
+    private final LeafletRepository leafletRepository;
+    private final StoreRepository storeRepository;
 
-    public void runForStores(List<Store> stores) {
-        int i = 0;
-        for (Store store : stores) {
-            try {
-                processStore(store);
-            } catch (Exception e) {
-                log.error("Error with processing {}: {}", store.getId(), e.getMessage(), e);
-            }
-            if(i++>1) break;
-        }
-    }
-
-    private void processStore(Store store) throws IOException, InterruptedException {
-        String name = store.getName();
-
-        List<LeafletDto> dtos = findPromotionalLeaflet(name);
-        System.out.println(dtos.get(0));
-        if (dtos == null || dtos.isEmpty()) {
-            return;
-        }
-
-        List<Leaflet> entities = dtos.stream()
-                .map(Leaflet::new)
-                .collect(Collectors.toList());
-
-        leafletRepo.saveAll(entities);
-    }
+    private static final Pattern DATE_PATTERN =
+            Pattern.compile("(\\d{2}\\.\\d{2})(?:\\s*[-–]\\s*(\\d{2}\\.\\d{2}))?");
 
     private final OkHttpClient client = new OkHttpClient();
-    /**
-     * Pobiera listę gazetek dla podanego sklepu.
-     * @param storeName nazwa sklepu
-     * @param url adres sklepu do pobrania danych
-     * @return lista gazetek
-     * @throws IOException w razie błędu pobierania 
-     */
+
+    @Scheduled(cron = "0 0 9 * * *")
+    public void fetchLeafletsScheduler() {
+        try {
+            //just for testing, ultimately list of all stores
+            List<Store> stores = List.of(
+                    storeRepository.findByName("Lidl").orElse(null),
+                    storeRepository.findByName("Biedronka").orElse(null),
+                    storeRepository.findByName("Kaufland").orElse(null),
+                    storeRepository.findByName("Carrefour").orElse(null),
+                    storeRepository.findByName("Netto").orElse(null),
+                    storeRepository.findByName("LEWIATAN").orElse(null),
+                    storeRepository.findByName("Aldi").orElse(null),
+                    storeRepository.findByName("Leclerc").orElse(null),
+                    storeRepository.findByName("Auchan").orElse(null)
+            );
+
+            List<LeafletDto> allLeaflets = new ArrayList<>();
+            for (Store store : stores) {
+                if (store != null) {
+                    allLeaflets.addAll(fetchLeafletsForStore(store));
+                }
+            }
+
+            processLeaflets(allLeaflets);
+
+        } catch (Exception e) {
+            log.error("Error in PromotionService scheduler: {}", e.getMessage(), e);
+        }
+    }
+
+    public void processLeaflets(List<LeafletDto> fetchedLeaflets) {
+        LocalDate today = LocalDate.now();
+        leafletRepository.deleteExpired(today);
+
+        for (LeafletDto dto : fetchedLeaflets) {
+            if (!leafletRepository.existsByUrl(dto.leafletLink())) {
+                leafletRepository.save(new Leaflet(dto));
+            }
+        }
+    }
+
+    public List<LeafletDto> fetchLeafletsForStore(Store store) {
+        try {
+            return findPromotionalLeaflet(store.getName());
+        } catch (Exception e) {
+            log.error("Error fetching leaflets for store {}: {}", store.getName(), e.getMessage(), e);
+            return Collections.emptyList();
+        }
+    }
+
     public List<LeafletDto> findPromotionalLeaflet(String storeName) throws IOException {
         if (storeName == null || storeName.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing or invalid storeName");
         }
 
-        // Normalizacja nazwy
         if (storeName.equalsIgnoreCase("Intermarché")) {
             storeName = "Intermarche";
         }
 
-        // Tworzymy URL do strony głównej sklepu - dynamicznie, np. https://storeName.pl
-        String cleanedstore = Utils.normalizeStore(storeName);
-        String baseUrl = "https://blix.pl/sklep/" + cleanedstore;
+        String cleanedStore = Utils.normalizeStore(storeName);
+        String baseUrl = "https://blix.pl/sklep/" + cleanedStore;
 
-        // Pobierz stronę główną sklepu
         Request request = new Request.Builder().url(baseUrl).build();
-
         try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                throw new IOException("HTTP error: " + response);
-            }
+            if (!response.isSuccessful()) throw new IOException("HTTP error: " + response);
 
             String html = response.body().string();
             Document doc = Jsoup.parse(html);
 
-            // Tu szukasz w dokumencie linków do gazetek np.
             Elements leafletLinks = doc.select("a[href*='gazetka'], a[href*='leaflet']");
-
-            if (leafletLinks.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No leaflets found for this shop");
-            }
+            if (leafletLinks.isEmpty()) return Collections.emptyList();
 
             List<LeafletDto> result = new ArrayList<>();
             for (Element a : leafletLinks) {
-                String link = a.attr("href"); // link do gazetki
-                String image = ""; // link do obrazka
-                String validUntil = ""; // data ważności
+                String link = a.attr("href");
+                String image = "";
+                LocalDate validSince = null;
+                LocalDate validUntil;
+
+                Document leafletDoc = Jsoup.connect(link).get();
+                Element h1 = leafletDoc.selectFirst("h1.leaflet-data__name");
+
+                if (h1 != null) {
+                    DateRange dates = parseDatesFromH1(h1.text());
+                    validSince = dates.start();
+                    validUntil = dates.end();
+                } else {
+                    validUntil = LocalDate.now();
+                }
+
+                if (validUntil.isBefore(LocalDate.now())) continue;
 
                 Element img = a.selectFirst("img");
-                if (img != null){
-                    image = img.attr("data-src");
-                }
+                if (img != null) image = img.attr("data-src");
 
-                Element date = a.selectFirst("div.leaflet__availability  span.availability__label");
-                if(date != null){
-                    validUntil = date.text();
-                    if("archiwalna".equals(date.text())) continue; //MY CHANGE - skip archival leaflets
-                }
-                List<String> leafletsUrl = Utils.getLeafletsURL(link);
-                //Dodajemy gazetkę do listy 
+                List<String> pages = Utils.getLeafletsURL(link);
                 LocalDate downloadDate = LocalDate.now();
 
-                if (link.toLowerCase().contains(cleanedstore.toLowerCase())) {  // filtrujemy po cleanedstore
-                    // dalsze parsowanie gazetki jeśli chcesz
-                    result.add(new LeafletDto(storeName, link, image, validUntil, leafletsUrl, downloadDate));
+                if (link.toLowerCase().contains(cleanedStore.toLowerCase())) {
+                    result.add(new LeafletDto(
+                            storeName, link, image, validSince, validUntil, pages, downloadDate
+                    ));
                 }
             }
-
             return result;
         }
     }
 
-    public List<LeafletDto> findPromotionalLeaflet_OnlyFirstPage(String storeName) throws IOException {
-        if (storeName == null || storeName.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing or invalid storeName");
+    private record DateRange(LocalDate start, LocalDate end) {}
+
+    private DateRange parseDatesFromH1(String text) {
+        Matcher matcher = DATE_PATTERN.matcher(text);
+        LocalDate startDate = null;
+        LocalDate endDate = null;
+        int year = LocalDate.now().getYear();
+
+        List<String> datesFound = new ArrayList<>();
+        while (matcher.find()) {
+            datesFound.add(matcher.group(1));
+            if (matcher.group(2) != null) {
+                datesFound.add(matcher.group(2));
+            }
         }
 
-        if (storeName.equalsIgnoreCase("Intermarché")) {
-            storeName = "Intermarche";
+        if (datesFound.isEmpty()) {
+            endDate = LocalDate.now();
+            return new DateRange(null, endDate);
         }
 
-        String cleanedstore = Utils.normalizeStore(storeName); // np. "biedronka"
-        String baseUrl = "https://blix.pl/sklep/" + cleanedstore;
-
-        Request request = new Request.Builder().url(baseUrl).build();
-
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                throw new IOException("HTTP error: " + response);
+        if (datesFound.size() == 1) {
+            String singleDate = datesFound.get(0);
+            if (text.toLowerCase().contains("od")) {
+                startDate = parseDayMonth(singleDate, year);
+            } else if (text.toLowerCase().contains("do")) {
+                endDate = parseDayMonth(singleDate, year);
+            } else {
+                endDate = parseDayMonth(singleDate, year);
             }
-
-            String html = response.body().string();
-            Document doc = Jsoup.parse(html);
-
-            // 1) Znajdź sekcję z aktualnymi gazetkami dla brandu
-            Element section = doc.selectFirst("section.other-leaflets-section");
-            if (section == null) {
-                // fallback: sekcja z nagłówkiem zawierającym "gazetki promocyjne"
-                section = doc.selectFirst("section.section-n:has(h2:matchesOwn((?i)gazetki\\s+promocyjne))");
-            }
-            if (section == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "No current leaflets section found for this shop");
-            }
-
-            // 2) Weź kafelki gazetek tylko z tej sekcji
-            Elements leafletCards = section.select("div.leaflet.section-n__item");
-            if (leafletCards.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "No leaflets found for this shop in the current section");
-            }
-
-            List<LeafletDto> result = new ArrayList<>();
-            LocalDate downloadDate = LocalDate.now();
-
-            for (Element card : leafletCards) {
-                // Filtr po sklepie – preferuj atrybut data-brand-slug
-                String brandSlug = card.attr("data-brand-slug");
-                if (brandSlug != null && !brandSlug.isBlank()
-                        && !brandSlug.equalsIgnoreCase(cleanedstore)) {
-                    continue;
-                }
-
-                Element a = card.selectFirst("a.leaflet__link[href]");
-                if (a == null) continue;
-
-                String link = a.hasAttr("href") ? a.attr("href") : "";
-                if (link.isEmpty()) continue;
-
-                // Dodatkowy filtr po URL (gdyby data-brand-slug nie było)
-                if (brandSlug == null || brandSlug.isBlank()) {
-                    if (!link.toLowerCase().contains("/" + cleanedstore.toLowerCase() + "/")) {
-                        continue;
-                    }
-                }
-
-                // Obrazek (odporny na lazy-load)
-                Element img = a.selectFirst("picture img");
-                String image = "";
-                if (img != null) {
-                    image = img.hasAttr("src") && !img.attr("src").isBlank()
-                            ? img.attr("src")
-                            : img.attr("data-src");
-                }
-
-                // Status/daty (etykieta pod okładką)
-                String validUntil = "";
-                Element label = a.selectFirst(".leaflet__availability .availability__label");
-                if (label != null) {
-                    validUntil = label.text(); // np. "od dziś" / "aktualna"
-                }
-
-                // 3) Pobierz listę stron i zostaw tylko PIERWSZĄ
-                List<String> pages = Utils.getLeafletsURL(link);
-                if (pages == null || pages.isEmpty()) {
-                    // jeśli parser stron nic nie zwrócił – pomiń tę gazetkę
-                    continue;
-                }
-                List<String> onlyFirstPage = Collections.singletonList(pages.get(0));
-
-                result.add(new LeafletDto(
-                        storeName,        // nazwa sklepu tak jak podał użytkownik (po korekcie Intermarché)
-                        link,            // URL gazetki
-                        image,           // okładka
-                        validUntil,      // etykieta dostępności
-                        onlyFirstPage,   // tylko pierwsza strona!
-                        downloadDate
-                ));
-            }
-
-            if (result.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "No matching leaflets for this shop in the current section");
-            }
-
-            return result;
+        } else {
+            startDate = parseDayMonth(datesFound.get(0), year);
+            endDate = parseDayMonth(datesFound.get(1), year);
         }
+
+        if (startDate != null) startDate = normalizeYear(startDate);
+
+        if (endDate == null) {
+            endDate = LocalDate.now();
+        } else {
+            endDate = normalizeYear(endDate);
+        }
+
+        return new DateRange(startDate, endDate);
     }
 
-    // ze strony głównej blix.pl pobieramy listę sklepów widocznych w sekcji głównych marek, zwracamy jako listę obiektów
+
+    private LocalDate parseDayMonth(String value, int year) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd.MM.yyyy");
+        return LocalDate.parse(value + "." + year, formatter);
+    }
+
+    private LocalDate normalizeYear(LocalDate date) {
+        LocalDate now = LocalDate.now();
+        if (date.isAfter(now.plusMonths(10))) return date.minusYears(1);
+        if (date.isBefore(now.minusMonths(10))) return date.plusYears(1);
+        return date;
+    }
 
     public List<StoreDto> getCurrentOfferShopLinks() throws IOException {
         String baseUrl = "https://blix.pl/sklepy";
@@ -274,100 +234,5 @@ public class PromotionService {
             return result;
         }
     }
-
-
-    // PromotionService.java (dopisz do klasy)
-//    public List<String> getLeafletPagesById(long leafletId) throws IOException {
-//        final String[] candidates = new String[] {
-//            "https://blix.pl/gazetka/" + leafletId,
-//            "https://blix.pl/leaflet/" + leafletId
-//        };
-//
-//        // mały helper: pobierz pierwszy działający URL
-//        String workingUrl = null;
-//        for (String url : candidates) {
-//            Request head = new Request.Builder()
-//                    .url(url)
-//                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-//                    .build();
-//            try (Response r = client.newCall(head).execute()) {
-//                if (r.isSuccessful() && r.body() != null) {
-//                    workingUrl = url;
-//                    break;
-//                }
-//            }
-//        }
-//        if (workingUrl == null) {
-//            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Leaflet page not found for id=" + leafletId);
-//        }
-//
-//        // pobieramy HTML i parsujemy obrazki stron
-//        Request get = new Request.Builder()
-//                .url(workingUrl)
-//                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-//                .header("Accept-Language", "pl,en;q=0.8")
-//                .build();
-//
-//        try (Response response = client.newCall(get).execute()) {
-//            if (!response.isSuccessful() || response.body() == null) {
-//                throw new IOException("HTTP error: " + response);
-//            }
-//            String html = response.body().string();
-//            // ustawiamy baseUri, żeby absUrl działał
-//            Document doc = Jsoup.parse(html, workingUrl);
-//
-//            // typowe miejsca na obrazki stron (img/source), filtrujemy po /{id}/
-//            String idNeedle = "/" + leafletId + "/";
-//
-//            Elements imgs = doc.select(
-//                    "img[src*='" + idNeedle + "'], img[data-src*='" + idNeedle + "'], " +
-//                    "source[srcset*='" + idNeedle + "']"
-//            );
-//
-//            java.util.LinkedHashSet<String> pages = new java.util.LinkedHashSet<>();
-//
-//            for (Element el : imgs) {
-//                // 1) data-src
-//                String u = el.hasAttr("data-src") ? el.absUrl("data-src") : "";
-//                if (!u.isBlank() && u.contains(idNeedle)) pages.add(u);
-//
-//                // 2) src
-//                if (u.isBlank() && el.hasAttr("src")) {
-//                    u = el.absUrl("src");
-//                    if (!u.isBlank() && u.contains(idNeedle)) pages.add(u);
-//                }
-//
-//                // 3) srcset (może być wiele rozmiarów; bierzemy wszystkie warianty z tym ID)
-//                if (el.hasAttr("srcset")) {
-//                    String srcset = el.attr("srcset");
-//                    for (String part : srcset.split(",")) {
-//                        String candidate = part.trim().split("\\s+")[0]; // URL bez "1x"/"320w"
-//                        if (!candidate.isBlank()) {
-//                            String abs = resolveAbsUrl(doc.baseUri(), candidate);
-//                            if (!abs.isBlank() && abs.contains(idNeedle)) {
-//                                pages.add(abs);
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//
-//            if (pages.isEmpty()) {
-//                // fallback: czasem viewer ładuje strony dynamicznie – wtedy zostawiamy jasny komunikat
-//                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-//                        "No page images found for leaflet id=" + leafletId);
-//            }
-//
-//            return new ArrayList<>(pages);
-//        }
-//    }
-
-    // mały helper do rozwiązywania URL względem baseUri
-//    private static String resolveAbsUrl(String baseUri, String relative) {
-//        try {
-//            return java.net.URI.create(baseUri).resolve(relative).toString();
-//        } catch (Exception e) {
-//            return relative;
-//        }
-//    }
 }
+

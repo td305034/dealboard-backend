@@ -1,24 +1,23 @@
 package com.td.dealboard.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.nimbusds.jose.*;
-import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import com.td.dealboard.exceptions.InvalidOldPasswordException;
-import com.td.dealboard.user.AuthProvider;
-import com.td.dealboard.user.Role;
+import com.td.dealboard.user.enums.NotificationTime;
+import com.td.dealboard.validation.ErrorMessages;
+import com.td.dealboard.user.enums.AuthProvider;
+import com.td.dealboard.user.enums.Role;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
 import com.td.dealboard.util.AppConstants;
+import com.td.dealboard.validation.ValidationException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -27,8 +26,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
+import reactor.core.publisher.Mono;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -39,7 +39,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static com.td.dealboard.util.AppConstants.*;
 
@@ -47,29 +46,35 @@ import static com.td.dealboard.util.AppConstants.*;
 @RequiredArgsConstructor
 public class AuthenticationService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final WebClient webClient;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private Map<String, Boolean> validStates = new ConcurrentHashMap<>();
 
-    public AuthenticationResponse register(RegisterRequest request){
-        String email = request.getEmail().toLowerCase();
+    public AuthenticationResponse register(RegisterRequest req){
+        String email = req.email().toLowerCase();
+        Map<String, String> errors = new HashMap<>();
+        if(userRepository.findByEmail(email).isPresent()){;
+            errors.put("email", ErrorMessages.EMAIL_NOT_FOUND);
+            throw new ValidationException(errors);
+        }
 
         User user = User.builder()
-                .name(request.getName())
+                .name(req.name())
                 .email(email)
-                .password(passwordEncoder.encode(request.getPassword()))
+                .password(passwordEncoder.encode(req.password()))
                 .role(Role.USER)
                 .provider(AuthProvider.LOCAL)
                 .onboardingCompleted(false)
+                .notificationTime(NotificationTime.MORNING)
                 .build();
         userRepository.save(user);
         Map<String, Object> userInfoWithoutExp = createUserInfoWithoutExp(user);
-        String jwtToken = jwtService.generateToken(userInfoWithoutExp, user);
 
+        String jwtToken = jwtService.generateToken(userInfoWithoutExp, user);
         String refreshToken = UUID.randomUUID().toString();
+
         user.setRefreshToken(refreshToken);
         user.setRefreshTokenExpiry(Date.from(Instant.now().plus(AppConstants.REFRESH_TOKEN_MAX_AGE.getInt(), ChronoUnit.SECONDS)));
         userRepository.save(user);
@@ -79,22 +84,25 @@ public class AuthenticationService {
                 .refreshToken((refreshToken))
                 .build();
     }
-    public void changePassword(User user, ChangePasswordRequest request) {
-        if (!passwordEncoder.matches(request.getOldPassword(), user.getPassword())) {
-            throw new InvalidOldPasswordException();
+    public void changePassword(String email, ChangePasswordRequest req) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User with email " + email + " not found"));
+
+        if (!passwordEncoder.matches(req.getOldPassword(), user.getPassword())) {
+            throw new ValidationException(Map.of("oldPassword", ErrorMessages.OLD_PASSWORD_INVALID));
         }
 
-        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPassword(passwordEncoder.encode(req.getNewPassword()));
         userRepository.save(user);
     }
-    public AuthenticationResponse authenticate(AuthenticationRequest request){
+    public AuthenticationResponse authenticate(AuthenticationRequest req){
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
-                        request.getPassword()
+                        req.getEmail(),
+                        req.getPassword()
                 )
         );
-        User user = userRepository.findByEmail(request.getEmail())
+        User user = userRepository.findByEmail(req.getEmail())
                 .orElseThrow();
         Map<String, Object> userInfoWithoutExp = createUserInfoWithoutExp(user);
         String refreshToken = UUID.randomUUID().toString();
@@ -108,41 +116,31 @@ public class AuthenticationService {
                 .build();
     }
 
-    public GoogleTokenResponse exchangeCodeForTokens(String code) {
-        RestTemplate restTemplate = new RestTemplate();
+    public Mono<GoogleTokenResponse> exchangeCodeForTokens(String code) {
+        MultiValueMap<String, String> formData = new LinkedMultiValueMap<>();
+        formData.add("code", code);
+        formData.add("client_id", GOOGLE_CLIENT_ID.getString());
+        formData.add("client_secret", GOOGLE_CLIENT_SECRET.getString());
+        formData.add("redirect_uri", GOOGLE_REDIRECT_URI.getString());
+        formData.add("grant_type", "authorization_code");
 
-        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("code", code);
-        params.add("client_id", GOOGLE_CLIENT_ID.getString());
-        params.add("client_secret", GOOGLE_CLIENT_SECRET.getString());
-        params.add("redirect_uri", GOOGLE_REDIRECT_URI.getString());
-        params.add("grant_type", "authorization_code");
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-        HttpEntity<MultiValueMap<String, String>> request =
-                new HttpEntity<>(params, headers);
-
-        ResponseEntity<GoogleTokenResponse> response = restTemplate.postForEntity(
-                "https://oauth2.googleapis.com/token",
-                request,
-                GoogleTokenResponse.class
-        );
-
-        return response.getBody();
+        return webClient.post()
+                .uri("/token")
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .bodyValue(formData)
+                .retrieve()
+                .bodyToMono(GoogleTokenResponse.class);
     }
+
 
     public boolean userExists(String email) {
+
         return userRepository.findByEmail(email).isPresent();
     }
+
     public boolean isPasswordCorrect(String email, String password) {
         User user = userRepository.findByEmail(email).orElseThrow();
         return passwordEncoder.matches(password, user.getPassword());
-    }
-
-    public boolean emailExists(String email) {
-        return userRepository.findByEmail(email).isPresent();
     }
 
     public Map<String, Object> createUserInfoWithoutExp(User user) {
@@ -153,6 +151,8 @@ public class AuthenticationService {
         userInfoWithoutExp.put("picture", user.getPicture());
         userInfoWithoutExp.put("provider", user.getProvider());
         userInfoWithoutExp.put("onboardingCompleted", user.getOnboardingCompleted());
+        userInfoWithoutExp.put("role", user.getRole().name());
+        System.out.println(user.getRole().name());
         return userInfoWithoutExp;
     }
 
@@ -234,25 +234,30 @@ public class AuthenticationService {
     }
 
     public ResponseEntity<String> initTokenResponse(String platform, String code) {
-        String tokenUrl = "https://oauth2.googleapis.com/token";
+        String redirectUri = (platform.equals("web")
+                ? "http://localhost:8082"
+                : "https://judson-daydreamy-considerably.ngrok-free.dev")
+                + AppConstants.GOOGLE_REDIRECT_URI.getString();
 
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+        String tokenUrl = "https://oauth2.googleapis.com/token";
 
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("client_id", AppConstants.GOOGLE_CLIENT_ID.getString());
         form.add("client_secret", AppConstants.GOOGLE_CLIENT_SECRET.getString());
-        form.add("redirect_uri", (platform.equals("web") ? "http://localhost:8082" : "https://judson-daydreamy-considerably.ngrok-free.dev") + AppConstants.GOOGLE_REDIRECT_URI.getString());
+        form.add("redirect_uri", redirectUri);
         form.add("grant_type", "authorization_code");
         form.add("code", code);
 
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(form, headers);
 
-        return restTemplate.postForEntity(
-                tokenUrl,
-                request,
-                String.class
-        );
+        String responseBody = webClient.post()
+                .uri("https://oauth2.googleapis.com/token") // pełny URL
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .bodyValue(form)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+
+        return ResponseEntity.ok(responseBody);
     }
 
     public Map<String, Object> retrieveSession(String token) {
@@ -296,6 +301,4 @@ public class AuthenticationService {
         }
         return map;
     }
-
-
 }

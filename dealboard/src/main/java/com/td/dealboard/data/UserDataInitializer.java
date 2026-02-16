@@ -1,6 +1,6 @@
 package com.td.dealboard.data;
 
-import com.td.dealboard.user.Role;
+import com.td.dealboard.user.enums.Role;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +34,7 @@ public class UserDataInitializer {
                 User user = new User();
                 user.setEmail(userEmail);
                 user.setPassword(passwordEncoder.encode("User123"));
-                user.setRole(Role.ADMIN);
+                user.setRole(Role.USER);
 
                 userRepository.save(user);
             }

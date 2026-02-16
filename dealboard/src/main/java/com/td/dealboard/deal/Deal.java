@@ -38,8 +38,13 @@ public class Deal {
 
     private Integer discountPercentage;
     private String promoNotes;
+
     private LocalDate validSince;
 
     @Column(nullable = false)
     private LocalDate validUntil;
+
+    @Column(nullable = false)
+    private Boolean appRequired = false;
+
 }

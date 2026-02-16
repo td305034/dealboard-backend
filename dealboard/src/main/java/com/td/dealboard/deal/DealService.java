@@ -1,18 +1,20 @@
 package com.td.dealboard.deal;
 
+import com.td.dealboard.deal.dto.GroupedDealDto;
+import com.td.dealboard.deal.dto.StoreRecommendationDto;
+import com.td.dealboard.deal.dto.request.DealFilterRequest;
 import com.td.dealboard.store.Store;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
 import com.td.dealboard.store.StoreRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.regex.Pattern;
@@ -27,10 +29,10 @@ public class DealService {
     private final Map<String, String> categoriesMap;
 
     public Page<GroupedDealDto> getDealsFeed(
-            Integer userId,
+            String email,
             Pageable pageable
     ) {
-        User user = userRepository.findById(userId).orElseThrow();
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new EntityNotFoundException("User with email " + email + " not found"));
 
         if (user.getSelectedStores().isEmpty() || user.getSelectedProducts().isEmpty()) {
             return Page.empty(pageable);
@@ -127,7 +129,6 @@ public class DealService {
     private DealDto toDto(Deal deal, User user) {
         boolean hasNotification = false;
         if (user != null) {
-            // Sprawdź czy user ma aktywne powiadomienie dla tego deala
             hasNotification = user.getNotifications().containsKey(deal.getName());
         }
         return new DealDto(
@@ -142,7 +143,8 @@ public class DealService {
                 deal.getDiscountPercentage(),
                 deal.getPromoNotes(),
                 deal.getValidUntil(),
-                hasNotification
+                hasNotification,
+                deal.getAppRequired()
         );
     }
 
@@ -160,6 +162,7 @@ public class DealService {
                         .promoNotes(dto.promo_notes())
                         .validSince(validSince)
                         .validUntil(validUntil)
+                        .appRequired(dto.app_required())
                         .build()
                 )
                 .toList();
@@ -186,19 +189,19 @@ public class DealService {
         dealRepository.save(entity);
     }
 
-    public Page<DealDto> getAllDealsWithFilters(String name, String storeName, String category, Double minPrice, Double maxPrice, Pageable pageable) {
-        Store store = storeRepository.findByName(storeName).orElse(null);
+    public Page<DealDto> getAllDealsWithFilters(String email, DealFilterRequest req, Pageable pageable) {
+        User user = userRepository.findByEmail(email).orElseThrow(()->new EntityNotFoundException("User with email " + email + " not found"));
+        Store store = storeRepository.findByName(req.storeName()).orElse(null);
         Specification<Deal> spec = Specification.allOf(
-                 DealSpecifications.nameContains(name)
+                 DealSpecifications.nameContains(req.name())
                 ,DealSpecifications.hasStore(store)
-                ,DealSpecifications.hasCategory(category)
-                ,DealSpecifications.minPrice(minPrice)
-                ,DealSpecifications.maxPrice(maxPrice));
+                ,DealSpecifications.hasCategory(req.category())
+                ,DealSpecifications.minPrice(req.minPrice())
+                ,DealSpecifications.maxPrice(req.maxPrice()));
 
         Pageable safePageable = sanitize(pageable);
-
         Page<Deal> result = dealRepository.findAll(spec, safePageable);
-        return result.map(this::toDto);
+        return result.map(deal -> toDto(deal, user));
     }
 
     private static final Set<String> ALLOWED_SORT_FIELDS = Set.of(
@@ -208,8 +211,8 @@ public class DealService {
             "name"
     );
 
-    public StoreRecommendationDto getRecommendedStore(Integer userId) {
-        User user = userRepository.findById(userId).orElseThrow();
+    public StoreRecommendationDto getRecommendedStore(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new EntityNotFoundException("User with email " + email + " not found"));
 
         if (user.getSelectedStores().isEmpty() || user.getSelectedProducts().isEmpty()) {
             return null;
@@ -267,9 +270,6 @@ public class DealService {
     private Pageable sanitize(Pageable pageable) {
         Sort sort = pageable.getSort().stream()
                 .filter(order -> ALLOWED_SORT_FIELDS.contains(order.getProperty()))
-//                .map(order -> order.isAscending() ?
-//                        Sort.Order.asc(order.getProperty()).nullsLast() :
-//                        Sort.Order.desc(order.getProperty()).nullsLast()) //TODO: MAKE IT WORK
                 .collect(Collectors.collectingAndThen(
                         Collectors.toList(),
                         Sort::by

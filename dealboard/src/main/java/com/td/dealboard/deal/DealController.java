@@ -1,5 +1,8 @@
 package com.td.dealboard.deal;
 
+import com.td.dealboard.deal.dto.GroupedDealDto;
+import com.td.dealboard.deal.dto.StoreRecommendationDto;
+import com.td.dealboard.deal.dto.request.DealFilterRequest;
 import com.td.dealboard.user.User;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,7 +11,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -24,49 +29,41 @@ public class DealController {
 
     @GetMapping("/mine")
     public Page<GroupedDealDto> getMyDeals(
-            @AuthenticationPrincipal User user,
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
         Pageable pageable = PageRequest.of(page, size);
-
-        return dealService.getDealsFeed(user.getId(), pageable);
+        return dealService.getDealsFeed(userDetails.getUsername(), pageable);
     }
 
     @GetMapping("/all")
     public Page<DealDto> getDeals(
-            @RequestParam(required = false) String name,
-            @RequestParam(required = false) String store,
-            @RequestParam(required = false) String category,
-            @RequestParam(required = false) Double minPrice,
-            @RequestParam(required = false) Double maxPrice,
-
+            @ParameterObject DealFilterRequest req,
             @ParameterObject
-            @PageableDefault(
-                    size = 20,
-                    sort = "name",
-                    direction = Sort.Direction.ASC
-            )
-            Pageable pageable
+            @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC)
+            Pageable pageable,
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
+        String email = userDetails != null ? userDetails.getUsername() : null;
         return dealService.getAllDealsWithFilters(
-                name,
-                store,
-                category,
-                minPrice,
-                maxPrice,
-                pageable);
+                email,
+                req,
+                pageable
+        );
     }
 
+
     @GetMapping("/products-suggestions")
-    public List<String> getProductSuggestions() {
-        return ProductSuggestions.POPULAR_PRODUCTS;
+    public ResponseEntity<List<String>> getProductSuggestions() {
+        return ResponseEntity.ok(ProductSuggestions.POPULAR_PRODUCTS);
     }
 
     @GetMapping("/recommended-store")
-    public StoreRecommendationDto getRecommendedStore(
-            @AuthenticationPrincipal User user
+    public ResponseEntity<StoreRecommendationDto> getRecommendedStore(
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
-        return dealService.getRecommendedStore(user.getId());
+        StoreRecommendationDto recommendation = dealService.getRecommendedStore(userDetails.getUsername());
+        return ResponseEntity.ok(recommendation);
     }
 }

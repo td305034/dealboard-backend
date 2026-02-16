@@ -1,7 +1,9 @@
 package com.td.dealboard.auth;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.td.dealboard.exceptions.ValidationException;
+import com.td.dealboard.util.CookieUtils;
+import com.td.dealboard.validation.ErrorMessages;
+import com.td.dealboard.validation.ValidationException;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
 import com.td.dealboard.util.AppConstants;
@@ -23,6 +25,7 @@ import static com.td.dealboard.util.AppConstants.*;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthenticationController {
+    private final CookieUtils cookieUtils;
 
     private final AuthenticationService authenticationService;
     private final JwtService jwtService;
@@ -34,25 +37,14 @@ public class AuthenticationController {
     public ResponseEntity<AuthenticationResponse> register(
             @Valid @RequestBody RegisterRequest request
     ){
-        Map<String, String> errors = new HashMap<>();
-
-        if (authenticationService.emailExists(request.getEmail())) {
-            errors.put("email", ErrorMessages.EMAIL_ALREADY_EXISTS);
-            throw new ValidationException(errors);
-        }
-
-        if (!errors.isEmpty()) {
-            throw new ValidationException(errors);
-        }
-
         return ResponseEntity.ok(authenticationService.register(request));
     }
     @PostMapping("/change-password")
     public ResponseEntity<String> changePassword(
-            @AuthenticationPrincipal User currentUser,
+            @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody ChangePasswordRequest request
     ) {
-        authenticationService.changePassword(currentUser, request);
+        authenticationService.changePassword(userDetails.getUsername(), request);
         return ResponseEntity.ok("Password changed successfully");
     }
     @PostMapping("/authenticate")
@@ -61,7 +53,7 @@ public class AuthenticationController {
     ){
         Map<String, String> errors = new HashMap<>();
 
-        if (!authenticationService.userExists(request.getEmail())) {
+        if (!userRepository.existsByEmail(request.getEmail())) {
             errors.put("email", ErrorMessages.EMAIL_NOT_FOUND);
             throw new ValidationException(errors);
         }
@@ -98,7 +90,7 @@ public class AuthenticationController {
     public ResponseEntity<Map<String, String>> exchangeCode(
             @RequestParam("code") String code,
             @RequestParam(value = "platform", required = false, defaultValue = "native") String platform
-    ) {
+    ) throws ParseException{
         if (code == null || code.isBlank()) {
             Map<String, String> err = Map.of("error", "Missing auth code");
             return ResponseEntity.badRequest().body(err);
@@ -116,15 +108,10 @@ public class AuthenticationController {
             return ResponseEntity.status(500).body(Map.of("error", "Failed to parse token response"));
         }
 
-
-        try {
             User user = authenticationService.googleLoginCreateUser(data);
             accessToken = authenticationService.createAccessToken(user);
             refreshToken = authenticationService.createRefreshToken(user);
-        } catch (ParseException e) {
-            System.err.println("Error decoding ID token: " + e.getMessage());
-            return ResponseEntity.status(500).body(Map.of("error", "Failed to decode ID token"));
-        }
+
         if(platform.equals("web")){
             ResponseCookie accessCookie = ResponseCookie.from(AppConstants.COOKIE_NAME.getString(), accessToken)
                     .httpOnly(true)
@@ -136,8 +123,8 @@ public class AuthenticationController {
 
             ResponseCookie refreshCookie = ResponseCookie.from(AppConstants.REFRESH_COOKIE_NAME.getString(), refreshToken)
                     .httpOnly(true)
-                    .secure(true) // true dla HTTPS
-                    .path("/api/auth/auth/refresh") // endpoint do refresh token
+                    .secure(true)
+                    .path("/api/auth/auth/refresh")
                     .maxAge(AppConstants.REFRESH_TOKEN_MAX_AGE.getInt())
                     .sameSite("Strict")
                     .build();
@@ -210,54 +197,32 @@ public class AuthenticationController {
         return ResponseEntity.ok(Map.of("accessToken", newAccessToken));
     }
 
-
-
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, Object>> logout() {
-        ResponseCookie accessCookie = ResponseCookie.from(AppConstants.COOKIE_NAME.getString(), "")
-                .path("/")
-                .maxAge(0)
-                .httpOnly(true)
-                .secure(false)
-                .sameSite("Lax")
+    public ResponseEntity<Void> logout() {
+        ResponseCookie accessCookie = cookieUtils.getCleanCookie(
+                AppConstants.COOKIE_NAME.getString(),
+                "/"
+        );
+
+        ResponseCookie refreshCookie = cookieUtils.getCleanCookie(
+                AppConstants.REFRESH_COOKIE_NAME.getString(),
+                "/api/auth/refresh"
+        );
+
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .build();
-
-        ResponseCookie refreshCookie = ResponseCookie.from(AppConstants.REFRESH_COOKIE_NAME.getString(), "")
-                .path("/api/auth/refresh")
-                .maxAge(0)
-                .httpOnly(true)
-                .secure(false)
-                .sameSite("Lax")
-                .build();
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(HttpHeaders.SET_COOKIE, accessCookie.toString());
-        headers.add(HttpHeaders.SET_COOKIE, refreshCookie.toString());
-
-        return new ResponseEntity<>(Map.of("success", true), headers, HttpStatus.OK);
     }
 
     @GetMapping("/verify")
-    public ResponseEntity<?> verifyToken(@AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Invalid token"));
+    public ResponseEntity<Void> verify(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        if (!userRepository.existsByEmail(userDetails.getUsername())) {
+            return ResponseEntity.notFound().build();
         }
-
-        User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElse(null);
-
-        if (user == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("error", "User not found"));
-        }
-
-        return ResponseEntity.ok(Map.of(
-                "valid", true,
-                "email", user.getEmail(),
-                "name", user.getName(),
-                "onboardingCompleted", user.getOnboardingCompleted() != null && user.getOnboardingCompleted()
-        ));
+        return ResponseEntity.noContent().build();
     }
 
 }

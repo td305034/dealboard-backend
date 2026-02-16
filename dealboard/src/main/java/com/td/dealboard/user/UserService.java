@@ -1,11 +1,15 @@
 package com.td.dealboard.user;
 
 import com.td.dealboard.auth.AuthenticationService;
-import com.td.dealboard.exceptions.ApiException;
+import com.td.dealboard.auth.JwtService;
+import com.td.dealboard.user.dto.NotificationTimeDto;
+import com.td.dealboard.user.dto.request.PushTokenRequest;
+import com.td.dealboard.user.dto.TrackedProductsDto;
+import com.td.dealboard.user.dto.TrackedStoresDto;
+import com.td.dealboard.user.dto.request.ToggleNotificationRequest;
+import com.td.dealboard.user.dto.response.ToggleNotificationResponse;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
-import org.jetbrains.annotations.NotNull;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,55 +20,95 @@ import java.util.*;
 public class UserService {
     private final UserRepository userRepository;
     private final AuthenticationService authenticationService;
+    private final JwtService jwtService;
 
     @Transactional
-    public void addPushToken(String email, String pushToken) {
+    public void addPushToken(String email, PushTokenRequest req) {
         User user = userRepository.findByEmail(email).orElseThrow();
-        user.getPushTokens().add(pushToken);
+        user.getPushTokens().add(req.pushToken());
         userRepository.save(user);
     }
 
     @Transactional
-    public void removePushToken(String email, String pushToken) {
-        User user = userRepository.findByEmail(email).orElseThrow();
-        user.getPushTokens().remove(pushToken);
+    public void removePushToken(String email, PushTokenRequest req) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new EntityNotFoundException("User with email " + email + " not found"));
+        user.getPushTokens().remove(req.pushToken());
         userRepository.save(user);
     }
 
-    public ResponseEntity<Map<String, String>> toggleNotification(String email, String productName, Boolean active) {
-        User updatableUser = userRepository.findByEmail(email).orElseThrow();
+    @Transactional
+    public ToggleNotificationResponse toggleNotification(String email, ToggleNotificationRequest req) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new EntityNotFoundException("User with email " + email + " not found"));
+
+        if (user.getNotifications() == null) {user.setNotifications(new HashMap<>());}
+        String productName = req.productName();
+        Boolean active = req.active();
+
         if(!active) {
-            updatableUser.getNotifications().remove(productName);
-            userRepository.save(updatableUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Notification removed for product: " + productName
-            ));
+            user.getNotifications().remove(productName);
+            userRepository.save(user);
+            return new ToggleNotificationResponse("Notification removed for product: " + productName);
         }else{
-            updatableUser.getNotifications().put(productName, new Date());
-            userRepository.save(updatableUser);
-            return ResponseEntity.ok(Map.of(
-                    "message", "Notification added for product: " + productName
-            ));
+            user.getNotifications().put(productName, new Date());
+            userRepository.save(user);
+            return new ToggleNotificationResponse("Notification added for product: " + productName);
         }
     }
 
+    @Transactional
     public String changeName(String email, String name) {
-        User updatableUser = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ApiException("User doesn't exist", HttpStatus.NOT_FOUND));
-        updatableUser.setName(name);
-        userRepository.save(updatableUser);
-        return authenticationService.createAccessToken(updatableUser);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User with email " + email + " not found"));
+        user.setName(name);
+        userRepository.save(user);
+        return authenticationService.createAccessToken(user);
     }
 
+    @Transactional(readOnly = true)
     public Set<String> getSelectedStores(String email) {
-        User updatableUser = userRepository.findByEmail(email)
-                .orElseThrow(()->new ApiException("Uzytkownik nie istnieje", HttpStatus.NOT_FOUND));
-        return updatableUser.getSelectedStores();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(()->new EntityNotFoundException("Użytkownik o emailu " + email + " nie istnieje"));
+        return user.getSelectedStores();
     }
 
+    @Transactional(readOnly = true)
     public Set<String> getSelectedProducts(String email) {
-        User updatableUser = userRepository.findByEmail(email)
-                .orElseThrow(()->new ApiException("Uzytkownik nie istnieje", HttpStatus.NOT_FOUND));
-        return updatableUser.getSelectedProducts();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(()->new EntityNotFoundException("Użytkownik o emailu " + email + " nie istnieje"));
+        return user.getSelectedProducts();
+    }
+
+    @Transactional
+    public void changeNotificationTime(String email, NotificationTimeDto req) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(()->new EntityNotFoundException("Użytkownik o emailu " + email + " nie istnieje"));
+        user.setNotificationTime(req.time());
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void updateTrackedProducts(String email, TrackedProductsDto req) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new EntityNotFoundException("User with email " + email + " not found"));
+        user.setSelectedProducts(req.trackedProducts());
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void updateTrackedStores(String email, TrackedStoresDto req) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User with email " + email + " not found"));
+        user.setSelectedStores(new HashSet<>(req.trackedStores()));
+        userRepository.save(user);
+    }
+
+    public String completeOnboarding(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User with email " + email + " not found"));
+        user.setOnboardingCompleted(true);
+        userRepository.save(user);
+        Map<String, Object> userInfoWithoutExp = authenticationService.createUserInfoWithoutExp(user);
+
+        return jwtService.generateToken(userInfoWithoutExp, user);
     }
 }

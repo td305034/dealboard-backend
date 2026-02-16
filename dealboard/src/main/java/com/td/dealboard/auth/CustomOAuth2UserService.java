@@ -1,7 +1,7 @@
 package com.td.dealboard.auth;
 
-import com.td.dealboard.user.AuthProvider;
-import com.td.dealboard.user.Role;
+import com.td.dealboard.user.enums.AuthProvider;
+import com.td.dealboard.user.enums.Role;
 import com.td.dealboard.user.User;
 import com.td.dealboard.user.UserRepository;
 import lombok.RequiredArgsConstructor;

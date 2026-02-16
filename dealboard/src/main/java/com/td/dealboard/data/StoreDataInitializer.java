@@ -2,7 +2,7 @@ package com.td.dealboard.data;
 
 import com.td.dealboard.scrapper.PromotionService;
 import com.td.dealboard.store.Store;
-import com.td.dealboard.store.StoreDto;
+import com.td.dealboard.store.dto.StoreDto;
 import com.td.dealboard.store.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,9 +53,7 @@ public class StoreDataInitializer {
             if (entities.isEmpty()) {
                 return;
             }
-
-            // Load existing names and urls from DB to avoid duplicate key errors
-            Set<String> existingNames = storeRepository.findAll().stream()
+                Set<String> existingNames = storeRepository.findAll().stream()
                     .map(Store::getName)
                     .filter(Objects::nonNull)
                     .map(StoreDataInitializer::normalize)
@@ -81,7 +79,6 @@ public class StoreDataInitializer {
                 log.info("Saved {} new stores.", toSave.size());
             } catch (DataIntegrityViolationException dive) {
                 log.warn("Bulk save failed due to DataIntegrityViolationException, falling back to per-item insert. Error: {}", dive.getMessage());
-                // Try saving one-by-one to be able to skip duplicates and continue
                 for (Store s : toSave) {
                     try {
                         if (storeRepository.existsByName(s.getName()) || storeRepository.existsByUrl(s.getUrl())) {
