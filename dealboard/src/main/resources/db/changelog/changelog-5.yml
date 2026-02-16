@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260112-fix-notification-time-values
+      author: Tomasz Drzewinski
+      changes:
+        - update:
+            tableName: _users
+            columns:
+              - column:
+                  name: notification_time
+                  value: 'MORNING'
+            where: notification_time = '09:00'
+        - update:
+            tableName: _users
+            columns:
+              - column:
+                  name: notification_time
+                  value: 'AFTERNOON'
+            where: notification_time = '14:00'
+        - update:
+            tableName: _users
+            columns:
+              - column:
+                  name: notification_time
+                  value: 'EVENING'
+            where: notification_time = '20:00'

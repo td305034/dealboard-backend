@@ -1,0 +1,21 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260112-change-leaflet-store-column
+      author: Tomasz Drzewinski
+      preConditions:
+        - onFail: MARK_RAN
+          not:
+            columnExists:
+              tableName: leaflets
+              columnName: store_name
+      changes:
+        - dropColumn:
+            tableName: leaflets
+            columnName: store
+
+        - addColumn:
+            tableName: leaflets
+            columns:
+              - column:
+                  name: store_name
+                  type: varchar(255)

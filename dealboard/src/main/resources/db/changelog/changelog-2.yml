@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 20260112-add-app-required-to-deal
+      author: Tomasz Drzewinski
+      preConditions:
+        - onFail: MARK_RAN
+          not:
+            columnExists:
+              tableName: deals
+              columnName: app_required
+      changes:
+        - addColumn:
+            tableName: deals
+            columns:
+              - column:
+                  name: app_required
+                  type: boolean
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
